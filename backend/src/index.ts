@@ -3,6 +3,7 @@ import cors    from 'cors';
 import helmet  from 'helmet';
 import { getDb } from './db/database';
 import notesRouter from './routes/notes';
+import tagsRouter  from './routes/tags';
 import { errorHandler, notFound } from './middleware/errorHandler';
 
 const app  = express();
@@ -16,6 +17,7 @@ getDb();
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/notes', notesRouter);
+app.use('/tags',  tagsRouter);
 
 app.use(notFound);
 app.use(errorHandler);

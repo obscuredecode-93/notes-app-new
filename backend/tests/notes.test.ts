@@ -254,3 +254,62 @@ describe('DELETE /notes/:id', () => {
     assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 });
+
+// ── GET /tags ─────────────────────────────────────────────────────────────────
+
+describe('GET /tags', () => {
+  beforeEach(reset);
+
+  it('returns empty array when no notes exist', async () => {
+    const res = await request(app).get('/tags');
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, []);
+  });
+
+  it('returns unique tags with correct counts', async () => {
+    await request(app).post('/notes').send({ tags: ['work', 'important'] });
+    await request(app).post('/notes').send({ tags: ['work'] });
+    await request(app).post('/notes').send({ tags: ['personal'] });
+
+    const res = await request(app).get('/tags');
+    const work     = res.body.find((t: { tag: string; count: number }) => t.tag === 'work');
+    const personal = res.body.find((t: { tag: string; count: number }) => t.tag === 'personal');
+    const important = res.body.find((t: { tag: string; count: number }) => t.tag === 'important');
+
+    assert.equal(work.count, 2);
+    assert.equal(personal.count, 1);
+    assert.equal(important.count, 1);
+  });
+
+  it('returns tags sorted by count descending', async () => {
+    await request(app).post('/notes').send({ tags: ['a'] });
+    await request(app).post('/notes').send({ tags: ['b', 'a'] });
+    await request(app).post('/notes').send({ tags: ['b', 'a', 'c'] });
+
+    const res = await request(app).get('/tags');
+    // 'a' appears 3 times, 'b' twice, 'c' once
+    assert.equal(res.body[0].tag, 'a');
+    assert.equal(res.body[1].tag, 'b');
+    assert.equal(res.body[2].tag, 'c');
+  });
+
+  it('does not count tags from notes with no tags', async () => {
+    await request(app).post('/notes').send({ title: 'No tags here' });
+    const res = await request(app).get('/tags');
+    assert.deepEqual(res.body, []);
+  });
+
+  it('updates count when a note is deleted', async () => {
+    // 'work' should appear twice, then drop to once after one note is deleted
+    await request(app).post('/notes').send({ tags: ['work'] });
+    const { body: toDelete } = await request(app).post('/notes').send({ tags: ['work'] });
+
+    const before = await request(app).get('/tags');
+    assert.equal(before.body.find((t: { tag: string; count: number }) => t.tag === 'work').count, 2);
+
+    await request(app).delete(`/notes/${toDelete.id}`);
+
+    const after = await request(app).get('/tags');
+    assert.equal(after.body.find((t: { tag: string; count: number }) => t.tag === 'work').count, 1);
+  });
+});
