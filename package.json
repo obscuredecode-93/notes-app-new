@@ -1,0 +1,12 @@
+{
+  "name": "notes-app",
+  "version": "1.0.0",
+  "description": "Notes app monorepo",
+  "private": true,
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0"
+  }
+}
