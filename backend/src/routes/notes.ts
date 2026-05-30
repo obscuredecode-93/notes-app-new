@@ -15,12 +15,55 @@ function rowToNote(row: Record<string, unknown>) {
   };
 }
 
-// GET /notes — return all notes
-router.get('/', (_req: Request, res: Response) => {
-  const db   = getDb();
-  const rows = db.prepare('SELECT * FROM notes ORDER BY updatedAt DESC')
-    .all() as Record<string, unknown>[];
-  res.json({ data: rows.map(rowToNote), total: rows.length, page: 1 });
+// GET /notes — list notes with optional search, tag filter, sort, and pagination
+router.get('/', (req: Request, res: Response) => {
+  const db = getDb();
+
+  const search = (req.query.search as string) ?? '';
+  const tag    = (req.query.tag    as string) ?? '';
+  const page   = Math.max(1, parseInt(req.query.page  as string) || 1);
+  const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+  const offset = (page - 1) * limit;
+
+  // Whitelist sort column to prevent SQL injection before Zod is added in commit 6
+  const ALLOWED_SORT = ['createdAt', 'updatedAt', 'title'] as const;
+  type SortCol = typeof ALLOWED_SORT[number];
+  const sortRaw = req.query.sort as string;
+  const sort: SortCol = (ALLOWED_SORT as readonly string[]).includes(sortRaw)
+    ? sortRaw as SortCol
+    : 'updatedAt';
+
+  const order = req.query.order === 'asc' ? 'ASC' : 'DESC';
+
+  // Build WHERE clause dynamically based on which filters are present
+  const conditions: string[]              = [];
+  const params:     (string | number)[]   = [];
+
+  if (search) {
+    // LIKE search across title and content — case-insensitive in SQLite by default for ASCII
+    conditions.push('(title LIKE ? OR content LIKE ?)');
+    params.push(`%${search}%`, `%${search}%`);
+  }
+
+  if (tag) {
+    // Tags stored as a JSON array string e.g. '["work","personal"]'.
+    // json_each() unnests the array into rows so we can match individual values exactly.
+    // Must qualify notes.id because json_each also exposes a column named id.
+    conditions.push(`notes.id IN (SELECT notes.id FROM notes, json_each(notes.tags) WHERE json_each.value = ?)`);
+    params.push(tag);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // Run count query first for pagination metadata
+  const total = (db.prepare(`SELECT COUNT(*) as cnt FROM notes ${where}`)
+    .get(...params) as { cnt: number }).cnt;
+
+  const rows = db.prepare(
+    `SELECT * FROM notes ${where} ORDER BY ${sort} ${order} LIMIT ? OFFSET ?`
+  ).all(...params, limit, offset) as Record<string, unknown>[];
+
+  res.json({ data: rows.map(rowToNote), total, page });
 });
 
 // GET /notes/:id
