@@ -100,12 +100,12 @@ describe('GET /notes', () => {
     assert.equal(p3.body.data.length, 1); // last page has only 1 note
   });
 
-  it('ignores invalid sort column and falls back to updatedAt', async () => {
-    await request(app).post('/notes').send({ title: 'A' });
-    // Should not throw even with a malicious sort value
+  it('returns 400 for an invalid sort column', async () => {
+    // Pre-Zod: silently fell back to updatedAt.
+    // Post-Zod: z.enum() rejects unknown values with a 400 — stricter and correct.
     const res = await request(app).get('/notes?sort=; DROP TABLE notes; --');
-    assert.equal(res.status, 200);
-    assert.equal(res.body.data.length, 1);
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
   });
 });
 
@@ -153,16 +153,46 @@ describe('POST /notes', () => {
     assert.notEqual(r1.body.id, r2.body.id);
   });
 
-  it('coerces non-string title to empty string', async () => {
+  // ── Validation (Zod) ──────────────────────────────────────────────────────
+
+  it('returns 400 for non-string title', async () => {
     const res = await request(app).post('/notes').send({ title: 123 });
-    assert.equal(res.status, 201);
-    assert.equal(res.body.title, '');
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
   });
 
-  it('coerces non-array tags to empty array', async () => {
+  it('returns 400 for title exceeding 200 characters', async () => {
+    const res = await request(app).post('/notes').send({ title: 'x'.repeat(201) });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+  });
+
+  it('returns 400 for non-array tags', async () => {
     const res = await request(app).post('/notes').send({ tags: 'not-an-array' });
-    assert.equal(res.status, 201);
-    assert.deepEqual(res.body.tags, []);
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+  });
+
+  it('returns 400 for more than 10 tags', async () => {
+    const res = await request(app).post('/notes')
+      .send({ tags: Array.from({ length: 11 }, (_, i) => `tag${i}`) });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+  });
+
+  it('returns 400 for a tag exceeding 50 characters', async () => {
+    const res = await request(app).post('/notes')
+      .send({ tags: ['t'.repeat(51)] });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+  });
+
+  it('returns consistent VALIDATION_ERROR shape', async () => {
+    const res = await request(app).post('/notes').send({ title: 'x'.repeat(201) });
+    assert.equal(res.status, 400);
+    assert.ok(res.body.error.code);
+    assert.ok(res.body.error.message);
+    assert.ok('details' in res.body.error);
   });
 });
 
@@ -227,6 +257,20 @@ describe('PATCH /notes/:id', () => {
     const res = await request(app).patch('/notes/nope').send({ title: 'x' });
     assert.equal(res.status, 404);
     assert.equal(res.body.error.code, 'NOT_FOUND');
+  });
+
+  it('returns 400 for invalid tags on PATCH', async () => {
+    const { body: n } = await request(app).post('/notes').send({ title: 'A' });
+    const res = await request(app).patch(`/notes/${n.id}`).send({ tags: 'not-an-array' });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+  });
+
+  it('returns 400 for title exceeding 200 chars on PATCH', async () => {
+    const { body: n } = await request(app).post('/notes').send({ title: 'A' });
+    const res = await request(app).patch(`/notes/${n.id}`).send({ title: 'x'.repeat(201) });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
   });
 });
 

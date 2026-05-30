@@ -1,17 +1,26 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/database';
+import { validateBody, validateQuery } from '../middleware/validate';
+import {
+  createNoteSchema,
+  updateNoteSchema,
+  listNotesSchema,
+  type CreateNoteInput,
+  type UpdateNoteInput,
+  type ListNotesQuery,
+} from '../schemas/noteSchema';
 
 const router = Router();
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-// Shape of a row as SQLite returns it (tags is a raw JSON string)
+// Shape of a row as SQLite returns it (tags stored as a JSON string)
 interface NoteRow {
   id:        string;
   title:     string;
   content:   string;
-  tags:      string; // JSON array string e.g. '["work","personal"]'
+  tags:      string;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,23 +35,16 @@ export interface Note {
   updatedAt: string;
 }
 
-// Whitelist for the sort column — validated here and again by Zod in commit 6.
-// Kept at module level so it isn't re-created on every request.
-const ALLOWED_SORT = ['createdAt', 'updatedAt', 'title'] as const;
-type SortCol = typeof ALLOWED_SORT[number];
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Convert a raw SQLite row to the API Note shape.
-// Tags are stored as a JSON string; we parse defensively in case of corruption.
+// Parses tags defensively in case of DB corruption — same pattern as tags.ts.
 function rowToNote(row: NoteRow): Note {
   let tags: string[] = [];
   try {
     const parsed = JSON.parse(row.tags);
-    // Only accept an actual array; reject any other JSON value
     tags = Array.isArray(parsed) ? parsed : [];
   } catch {
-    // Malformed JSON in the tags column — default to empty rather than crashing
     tags = [];
   }
   return {
@@ -55,51 +57,30 @@ function rowToNote(row: NoteRow): Note {
   };
 }
 
-// Safely coerce body fields to the expected types.
-// Full Zod validation arrives in commit 6; these guards prevent bad data in the DB now.
-function safeString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
-}
-
-function safeTags(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  // Keep only string elements; silently drop anything else
-  return value.filter((t): t is string => typeof t === 'string');
-}
-
 // ── Routes ────────────────────────────────────────────────────────────────────
 
-// GET /notes — list notes with optional search, tag filter, sort, and pagination
-router.get('/', (req: Request, res: Response) => {
+// GET /notes — list with search, tag filter, sort, and pagination.
+// validateQuery runs listNotesSchema first: coerces page/limit to numbers,
+// defaults sort to 'updatedAt' and order to 'desc', rejects unknown sort values.
+router.get('/', validateQuery(listNotesSchema), (req: Request, res: Response) => {
   const db = getDb();
 
-  const search = safeString(req.query.search);
-  const tag    = safeString(req.query.tag);
-  const page   = Math.max(1, parseInt(req.query.page  as string) || 1);
-  const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+  // After Zod validation, req.query holds coerced, typed values
+  const { search, tag, sort, order, page, limit } =
+    req.query as unknown as ListNotesQuery;
   const offset = (page - 1) * limit;
 
-  const sortRaw = req.query.sort as string;
-  const sort: SortCol = (ALLOWED_SORT as readonly string[]).includes(sortRaw)
-    ? (sortRaw as SortCol)
-    : 'updatedAt';
-
-  // Only two valid order values — anything else defaults to DESC
-  const order = req.query.order === 'asc' ? 'ASC' : 'DESC';
-
-  // Build WHERE clause incrementally; use parameterised values throughout
   const conditions: string[]            = [];
   const params:     (string | number)[] = [];
 
   if (search) {
-    // LIKE is case-insensitive for ASCII in SQLite by default
     conditions.push('(title LIKE ? OR content LIKE ?)');
     params.push(`%${search}%`, `%${search}%`);
   }
 
   if (tag) {
-    // json_each() unnests the tags array into individual rows for exact matching.
-    // Must qualify notes.id because json_each also exposes a column named id.
+    // json_each() unnests the tags array; qualify notes.id to avoid ambiguity
+    // with json_each's own 'id' column.
     conditions.push(
       `notes.id IN (SELECT notes.id FROM notes, json_each(notes.tags) WHERE json_each.value = ?)`
     );
@@ -107,17 +88,14 @@ router.get('/', (req: Request, res: Response) => {
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const dir   = order === 'asc' ? 'ASC' : 'DESC';
 
-  // Separate COUNT query for pagination metadata — SQLite is fast enough that
-  // running two queries is simpler than a window function for this scale.
-  // Cast through unknown: node:sqlite returns Record<string, SQLOutputValue>
-  // which TypeScript won't directly narrow to our NoteRow shape.
   const { cnt: total } = db.prepare(
     `SELECT COUNT(*) as cnt FROM notes ${where}`
   ).get(...params) as unknown as { cnt: number };
 
   const rows = db.prepare(
-    `SELECT * FROM notes ${where} ORDER BY ${sort} ${order} LIMIT ? OFFSET ?`
+    `SELECT * FROM notes ${where} ORDER BY ${sort} ${dir} LIMIT ? OFFSET ?`
   ).all(...params, limit, offset) as unknown as NoteRow[];
 
   res.json({ data: rows.map(rowToNote), total, page });
@@ -138,16 +116,18 @@ router.get('/:id', (req: Request, res: Response): void => {
   res.json(rowToNote(row));
 });
 
-// POST /notes
-router.post('/', (req: Request, res: Response) => {
+// POST /notes — validateBody runs createNoteSchema, which applies defaults
+// and ensures title/content are strings and tags is a string array.
+router.post('/', validateBody(createNoteSchema), (req: Request, res: Response) => {
   const db  = getDb();
   const now = new Date().toISOString();
+  const { title, content, tags } = req.body as CreateNoteInput;
 
   const note = {
     id:        uuidv4(),
-    title:     safeString(req.body.title),
-    content:   safeString(req.body.content),
-    tags:      JSON.stringify(safeTags(req.body.tags)),
+    title,
+    content,
+    tags:      JSON.stringify(tags),
     createdAt: now,
     updatedAt: now,
   };
@@ -157,12 +137,12 @@ router.post('/', (req: Request, res: Response) => {
      VALUES (@id, @title, @content, @tags, @createdAt, @updatedAt)`
   ).run(note);
 
-  // Return the note in its API shape (parse tags back out of the JSON string)
   res.status(201).json(rowToNote(note as unknown as NoteRow));
 });
 
-// PATCH /notes/:id — partial update, only supplied fields are changed
-router.patch('/:id', (req: Request, res: Response): void => {
+// PATCH /notes/:id — partial update; only supplied fields are changed.
+// updateNoteSchema rejects bodies with no valid fields.
+router.patch('/:id', validateBody(updateNoteSchema), (req: Request, res: Response): void => {
   const db  = getDb();
   const row = db.prepare('SELECT * FROM notes WHERE id = ?')
     .get(req.params.id) as unknown as NoteRow | undefined;
@@ -174,16 +154,18 @@ router.patch('/:id', (req: Request, res: Response): void => {
     return;
   }
 
-  // Only update fields that were explicitly provided in the request body
+  const { title, content, tags } = req.body as UpdateNoteInput;
+
+  // Build SET clause dynamically — only columns present in the request body
   const updates: Record<string, string> = {
     updatedAt: new Date().toISOString(),
   };
-  if (req.body.title   !== undefined) updates.title   = safeString(req.body.title);
-  if (req.body.content !== undefined) updates.content = safeString(req.body.content);
-  if (req.body.tags    !== undefined) updates.tags    = JSON.stringify(safeTags(req.body.tags));
+  if (title   !== undefined) updates.title   = title;
+  if (content !== undefined) updates.content = content;
+  if (tags    !== undefined) updates.tags    = JSON.stringify(tags);
 
-  // Build SET clause from the keys collected above — column names are controlled,
-  // values go through parameterised named bindings (@key), so no injection risk.
+  // Column names come from our controlled set above — no injection risk.
+  // Values go through named parameterised bindings (@key).
   const setClauses = Object.keys(updates).map((k) => `${k} = @${k}`).join(', ');
   db.prepare(`UPDATE notes SET ${setClauses} WHERE id = @id`)
     .run({ ...updates, id: req.params.id });
