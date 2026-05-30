@@ -83,6 +83,25 @@ describe('GET /notes', () => {
     assert.equal(res.body.data[0].title, 'Zebra');
   });
 
+  it('sorts by createdAt descending — newest first', async () => {
+    await request(app).post('/notes').send({ title: 'First' });
+    // Small delay so timestamps are distinct
+    await new Promise((r) => setTimeout(r, 10));
+    await request(app).post('/notes').send({ title: 'Second' });
+
+    const res = await request(app).get('/notes?sort=createdAt&order=desc');
+    assert.equal(res.body.data[0].title, 'Second');
+  });
+
+  it('sorts by createdAt ascending — oldest first', async () => {
+    await request(app).post('/notes').send({ title: 'First' });
+    await new Promise((r) => setTimeout(r, 10));
+    await request(app).post('/notes').send({ title: 'Second' });
+
+    const res = await request(app).get('/notes?sort=createdAt&order=asc');
+    assert.equal(res.body.data[0].title, 'First');
+  });
+
   it('paginates correctly', async () => {
     for (let i = 0; i < 5; i++) {
       await request(app).post('/notes').send({ title: `Note ${i}` });
@@ -257,6 +276,15 @@ describe('PATCH /notes/:id', () => {
     const res = await request(app).patch('/notes/nope').send({ title: 'x' });
     assert.equal(res.status, 404);
     assert.equal(res.body.error.code, 'NOT_FOUND');
+  });
+
+  it('returns 400 for empty body on PATCH', async () => {
+    // updateNoteSchema refine() rejects {} — sending no fields is a client error,
+    // not a no-op, because it signals a malformed request
+    const { body: n } = await request(app).post('/notes').send({ title: 'A' });
+    const res = await request(app).patch(`/notes/${n.id}`).send({});
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
   });
 
   it('returns 400 for invalid tags on PATCH', async () => {

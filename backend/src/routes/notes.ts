@@ -94,6 +94,8 @@ router.get('/', validateQuery(listNotesSchema), (req: Request, res: Response) =>
     `SELECT COUNT(*) as cnt FROM notes ${where}`
   ).get(...params) as unknown as { cnt: number };
 
+  // `sort` is interpolated directly — safe because listNotesSchema constrains
+  // it to z.enum(['createdAt','updatedAt','title']) before this handler runs.
   const rows = db.prepare(
     `SELECT * FROM notes ${where} ORDER BY ${sort} ${dir} LIMIT ? OFFSET ?`
   ).all(...params, limit, offset) as unknown as NoteRow[];
