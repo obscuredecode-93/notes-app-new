@@ -18,6 +18,44 @@
   ::-webkit-scrollbar-thumb:hover { @apply bg-text-faint; }
 }
 
+@layer components {
+  /* ── TipTap / ProseMirror editor content styles ──────────────────────────── */
+
+  .ProseMirror {
+    @apply outline-none min-h-[20rem] text-[15px] leading-7 text-text-pri;
+  }
+
+  /* Placeholder text injected by @tiptap/extension-placeholder */
+  .ProseMirror p.is-editor-empty:first-child::before {
+    @apply text-text-faint pointer-events-none float-left h-0;
+    content: attr(data-placeholder);
+  }
+
+  .ProseMirror p          { @apply mb-3; }
+  .ProseMirror h1         { @apply text-3xl font-serif mb-4 mt-6 text-text-pri; }
+  .ProseMirror h2         { @apply text-2xl font-serif mb-3 mt-5 text-text-pri; }
+  .ProseMirror h3         { @apply text-xl font-semibold mb-2 mt-4 text-text-pri; }
+  .ProseMirror ul         { @apply list-disc ml-5 mb-3 space-y-1; }
+  .ProseMirror ol         { @apply list-decimal ml-5 mb-3 space-y-1; }
+  .ProseMirror li         { @apply text-text-pri; }
+  .ProseMirror blockquote { @apply border-l-4 border-accent pl-4 my-4 text-text-sec italic; }
+  .ProseMirror hr         { @apply border-border-col my-6; }
+  .ProseMirror strong     { @apply font-semibold text-text-pri; }
+
+  .ProseMirror code {
+    @apply bg-bg-hover text-accent font-mono text-[13px] px-1.5 py-0.5 rounded;
+  }
+
+  .ProseMirror pre {
+    @apply bg-bg-hover rounded-lg p-4 mb-4 overflow-x-auto;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  .ProseMirror pre code {
+    @apply bg-transparent p-0 text-[13px] text-text-sec;
+  }
+}
+
 @layer utilities {
   /* Skeleton loading placeholder — used by LoadingState component */
   .skeleton { @apply animate-pulse bg-bg-surface rounded; }

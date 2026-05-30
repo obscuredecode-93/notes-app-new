@@ -13,6 +13,17 @@ export function useNotes(filter: NotesFilter = {}) {
   });
 }
 
+// Fetch a single note by ID. The query is disabled when id is null
+// so we don't fire a spurious request when no note is selected.
+export function useNote(id: string | null) {
+  return useQuery({
+    queryKey: ['note', id],
+    queryFn:  () => notesApi.get(id!),
+    enabled:  !!id,
+    staleTime: 30_000,
+  });
+}
+
 // Create a new note and invalidate the notes list so it re-fetches.
 export function useCreateNote() {
   const qc = useQueryClient();
