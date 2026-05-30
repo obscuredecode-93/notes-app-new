@@ -1,22 +1,22 @@
 #!/bin/sh
 echo "▶ pre-commit: running checks..."
 
-# TypeScript
+# ── Backend ───────────────────────────────────────────────────────────────────
 echo "  → typecheck (backend)"
-cd backend && npx tsc --noEmit || { echo "✗ TypeScript errors — commit blocked"; exit 1; }
+cd backend && npx tsc --noEmit || { echo "✗ Backend TypeScript errors — commit blocked"; exit 1; }
 
-# ESLint
 echo "  → lint (backend)"
-npm run lint || { echo "✗ ESLint errors — commit blocked"; exit 1; }
+npm run lint || { echo "✗ Backend ESLint errors — commit blocked"; exit 1; }
 
-# Tests
 echo "  → tests (backend)"
-npm test || { echo "✗ Tests failed — commit blocked"; exit 1; }
+npm test || { echo "✗ Backend tests failed — commit blocked"; exit 1; }
 
-# Frontend checks added automatically as frontend is built out
-if [ -d "../frontend/src" ]; then
-  echo "  → typecheck (frontend)"
-  cd ../frontend && npx tsc --noEmit || { echo "✗ Frontend TypeScript errors — commit blocked"; exit 1; }
+# ── Frontend ──────────────────────────────────────────────────────────────────
+echo "  → typecheck (frontend)"
+cd ../frontend && npx tsc --noEmit || { echo "✗ Frontend TypeScript errors — commit blocked"; exit 1; }
+
+# Frontend unit tests added when Vitest is set up (commit 9+)
+if [ -f "vitest.config.ts" ]; then
   echo "  → tests (frontend)"
   npx vitest run || { echo "✗ Frontend tests failed — commit blocked"; exit 1; }
 fi

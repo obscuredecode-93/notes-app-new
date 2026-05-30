@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=Instrument+Serif&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root { color-scheme: dark; }
+
+  html, body, #root { @apply h-full; }
+
+  body { @apply bg-bg-base text-text-pri font-sans antialiased; }
+
+  /* Slim scrollbar that matches the dark palette */
+  ::-webkit-scrollbar       { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { @apply bg-bg-base; }
+  ::-webkit-scrollbar-thumb { @apply bg-border-col rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-text-faint; }
+}
+
+@layer utilities {
+  /* Skeleton loading placeholder — used by LoadingState component */
+  .skeleton { @apply animate-pulse bg-bg-surface rounded; }
+}
