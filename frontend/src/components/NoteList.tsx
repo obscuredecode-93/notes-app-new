@@ -40,6 +40,7 @@ export default function NoteList() {
         </div>
 
         <button
+          type="button"
           onClick={handleNew}
           disabled={createNote.isPending}
           aria-label="New note"

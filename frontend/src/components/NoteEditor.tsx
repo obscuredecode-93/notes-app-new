@@ -1,12 +1,50 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit    from '@tiptap/starter-kit';
-import Placeholder   from '@tiptap/extension-placeholder';
+import StarterKit  from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
 import {
   Bold, Italic, Code, Heading1, Heading2,
   List, ListOrdered, Quote, Minus,
+  Loader2, Check, AlertCircle,
 } from 'lucide-react';
 import type { Note } from '../types';
+import { useDebounce }    from '../hooks/useDebounce';
+import { useUpdateNote }  from '../hooks/useNotes';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const AUTOSAVE_DELAY_MS = 1_000;
+const SAVED_LABEL_TTL   = 2_000; // how long "Saved" stays visible
+
+// ── Save state indicator ──────────────────────────────────────────────────────
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+// The aria-live region must remain in the DOM at all times.
+// Screen readers only announce changes to *existing* live regions — if the
+// element is conditionally mounted/unmounted the announcement is often skipped.
+function SaveIndicator({ state }: { state: SaveState }) {
+  return (
+    <span
+      aria-live="polite"
+      aria-atomic="true"
+      className="flex items-center gap-1 text-xs ml-auto min-w-[4rem]"
+    >
+      {state === 'saving' && (
+        <><Loader2 className="w-3 h-3 animate-spin text-text-faint" aria-hidden="true" />
+          <span className="text-text-faint">Saving…</span></>
+      )}
+      {state === 'saved' && (
+        <><Check className="w-3 h-3 text-success" aria-hidden="true" />
+          <span className="text-success">Saved</span></>
+      )}
+      {state === 'error' && (
+        <><AlertCircle className="w-3 h-3 text-danger" aria-hidden="true" />
+          <span className="text-danger">Failed to save</span></>
+      )}
+    </span>
+  );
+}
 
 // ── Toolbar button ────────────────────────────────────────────────────────────
 
@@ -21,12 +59,7 @@ function ToolbarButton({ onClick, active, title, children }: ToolbarButtonProps)
   return (
     <button
       type="button"
-      onMouseDown={(e) => {
-        // Prevent the editor losing focus on mouse click.
-        // The action itself is handled by onClick, which fires for both
-        // mouse clicks AND keyboard (Space/Enter) — keeping toolbar accessible.
-        e.preventDefault();
-      }}
+      onMouseDown={(e) => e.preventDefault()} // keep editor focused on mouse click
       onClick={onClick}
       title={title}
       aria-label={title}
@@ -48,30 +81,103 @@ interface Props {
   note: Note;
 }
 
-// Renders a TipTap rich-text editor for the selected note.
-// At this commit the editor is interactive but changes are NOT persisted —
-// auto-save with debounce is added in commit 11.
 export default function NoteEditor({ note }: Props) {
+  const [title,     setTitle]     = useState(note.title);
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+
+  // Debounce the title so we only fire PATCH after 1 s of no typing
+  const debouncedTitle = useDebounce(title, AUTOSAVE_DELAY_MS);
+
+  // Keep a ref to the latest content so the onUpdate callback always has the
+  // current value without adding it to any dependency arrays
+  const latestContentRef = useRef(note.content);
+
+  // Ref to the pending content-save timeout — cleared on unmount to prevent
+  // setState calls on an unmounted component
+  const contentTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const updateNote = useUpdateNote();
+
+  // ── Save helper ─────────────────────────────────────────────────────────────
+
+  // Use a ref so the save function is always current inside callbacks/effects
+  // without needing to be listed as a dependency
+  const saveRef = useRef(
+    async (patch: Partial<Pick<Note, 'title' | 'content'>>) => {
+      setSaveState('saving');
+      try {
+        await updateNote.mutateAsync({ id: note.id, ...patch });
+        setSaveState('saved');
+        setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), SAVED_LABEL_TTL);
+      } catch {
+        setSaveState('error');
+      }
+    }
+  );
+  // Keep saveRef.current up-to-date whenever note.id or updateNote changes
+  useEffect(() => {
+    saveRef.current = async (patch) => {
+      setSaveState('saving');
+      try {
+        await updateNote.mutateAsync({ id: note.id, ...patch });
+        setSaveState('saved');
+        setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), SAVED_LABEL_TTL);
+      } catch {
+        setSaveState('error');
+      }
+    };
+  }, [note.id, updateNote]);
+
+  // ── TipTap editor ──────────────────────────────────────────────────────────
+
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: 'Start writing…' }),
     ],
     content: note.content,
+    onUpdate: ({ editor: e }) => {
+      const html = e.getHTML();
+      latestContentRef.current = html;
+
+      // Debounce: clear any pending save and schedule a new one
+      if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
+      contentTimerRef.current = setTimeout(() => {
+        saveRef.current({ content: latestContentRef.current });
+      }, AUTOSAVE_DELAY_MS);
+    },
   });
 
-  // When the user selects a different note, swap the editor content.
-  // Using `note.id` as the dependency ensures we only reset on note change,
-  // not on every content update (which would fight the editor's own state).
+  // ── Sync when the selected note changes ────────────────────────────────────
+
   useEffect(() => {
     if (!editor) return;
-    // setContent with emitUpdate=false prevents triggering onUpdate callbacks
+    setTitle(note.title);
+    latestContentRef.current = note.content;
     editor.commands.setContent(note.content, false);
+    setSaveState('idle');
+    // Cancel any pending content save from the previous note
+    if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
-  // useEditor cleans up the editor instance when the component unmounts —
-  // no manual destroy needed.
+  // ── Cleanup on unmount ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    return () => {
+      if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
+    };
+  }, []);
+
+  // ── Auto-save title ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    // Skip the initial render and identical values
+    if (debouncedTitle === note.title) return;
+    saveRef.current({ title: debouncedTitle });
+  }, [debouncedTitle, note.title]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-full">
@@ -161,20 +267,25 @@ export default function NoteEditor({ note }: Props) {
             </ToolbarButton>
           </>
         )}
+
+        {/* Save state indicator — pushed to the right */}
+        <SaveIndicator state={saveState} />
       </div>
 
-      {/* ── Title (display-only at this stage; editing wired in commit 11) ── */}
+      {/* ── Title input ───────────────────────────────────────────────────── */}
       <div className="px-6 pt-6 pb-2 shrink-0">
-        <h2 className="text-3xl font-serif text-text-pri">
-          {note.title || 'Untitled'}
-        </h2>
+        <input
+          type="text"
+          placeholder="Untitled"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          aria-label="Note title"
+          className="w-full text-3xl font-serif bg-transparent border-none outline-none text-text-pri placeholder:text-text-faint"
+        />
       </div>
 
       {/* ── Editor content ───────────────────────────────────────────────── */}
-      <div
-        className="flex-1 overflow-y-auto px-6 pb-10"
-        aria-label="Note content"
-      >
+      <div className="flex-1 overflow-y-auto px-6 pb-10" aria-label="Note content">
         <EditorContent editor={editor} />
       </div>
 
