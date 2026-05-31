@@ -141,7 +141,11 @@ export function useDeleteNote() {
     },
 
     onSettled: (_data, _err, id) => {
-      // Always sync with server — also refreshes the tag counts
+      // Always sync with server — also refreshes the tag counts.
+      // removeQueries on trash so the next open fetches fresh data
+      // (invalidate alone keeps a stale cached value that may be shown
+      // briefly before the refetch completes — causes the re-trash bug).
+      qc.removeQueries({ queryKey: ['trash'] });
       qc.invalidateQueries({ queryKey: ['notes'] });
       qc.invalidateQueries({ queryKey: ['note', id] });
       qc.invalidateQueries({ queryKey: ['tags'] });
@@ -163,8 +167,10 @@ export function useRestoreNote() {
   return useMutation({
     mutationFn: (id: string) => notesApi.restore(id),
     onSuccess: () => {
+      // Remove trash cache entirely after restore so that if the note is
+      // re-trashed the TrashPanel never renders the stale empty cache.
+      qc.removeQueries({ queryKey: ['trash'] });
       qc.invalidateQueries({ queryKey: ['notes'] });
-      qc.invalidateQueries({ queryKey: ['trash'] });
       qc.invalidateQueries({ queryKey: ['tags'] });
     },
   });
@@ -175,7 +181,7 @@ export function useDeletePermanent() {
   return useMutation({
     mutationFn: (id: string) => notesApi.deletePermanent(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['trash'] });
+      qc.removeQueries({ queryKey: ['trash'] });
     },
   });
 }
