@@ -178,8 +178,6 @@ export default function NoteEditor({ note }: Props) {
     content: note.content,
     onUpdate: ({ editor: e }) => {
       const html = e.getHTML();
-      // DEBUG — remove before deploy
-      if (import.meta.env.DEV) console.log('[editor HTML]', html);
       latestContentRef.current = html;
 
       // Debounce: clear any pending save and schedule a new one
