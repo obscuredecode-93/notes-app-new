@@ -61,26 +61,6 @@
 
   .ProseMirror p { @apply mb-3; }
 
-  /* Lists — use padding-left, NOT margin-left.
-     Bullet/number markers live in the padding area of the <ul>/<ol>.
-     margin-left just shifts the box; markers would be invisible with margin only. */
-  .ProseMirror ul { list-style-type: disc;    @apply pl-6 mb-3; }
-  .ProseMirror ol { list-style-type: decimal; @apply pl-6 mb-3; }
-  .ProseMirror li { @apply text-text-pri; }
-  /* TipTap wraps list item content in <p> tags — zero out the paragraph margin
-     so we don't get a gap after every bullet */
-  .ProseMirror li p { @apply mb-0; }
-
-  /* Blockquote — more prominent left border + background tint */
-  .ProseMirror blockquote {
-    @apply border-l-4 border-accent pl-4 my-4 text-text-sec italic rounded-r-sm;
-    background: rgba(99, 102, 241, 0.06);
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-  }
-  /* Remove the bottom margin on paragraphs inside blockquotes */
-  .ProseMirror blockquote p { @apply mb-0; }
-
   .ProseMirror hr     { @apply border-border-col my-6; }
   .ProseMirror strong { @apply font-semibold text-text-pri; }
 
@@ -141,4 +121,46 @@
   font-weight: 600;
   line-height: 1.4;
   margin: 0.5rem 0 0.25rem;
+}
+
+/* ── Lists and blockquote — OUTSIDE @layer ───────────────────────────────────
+   Same reason as headings: Tailwind Preflight (@layer base) resets
+   ul/ol { list-style: none; padding: 0 } and blockquote { margin: 0 }.
+   Unlayered CSS beats all @layer rules regardless of specificity. */
+
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ProseMirror li {
+  display: list-item;
+  color: var(--color-text-pri);
+}
+
+/* TipTap wraps <li> content in <p> — remove its margin so items don't
+   get a gap between them */
+.ProseMirror li > p {
+  margin: 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid #6366F1;
+  padding: 0.5rem 1rem;
+  margin: 0.75rem 0;
+  color: var(--color-text-sec);
+  font-style: italic;
+  background: rgba(99, 102, 241, 0.06);
+  border-radius: 0 4px 4px 0;
+}
+
+.ProseMirror blockquote > p {
+  margin: 0;
 }
