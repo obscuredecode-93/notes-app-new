@@ -104,6 +104,51 @@ export function useTags() {
   });
 }
 
+// Delete a note with optimistic removal — it disappears from the list
+// immediately without waiting for the server. On failure the previous cache
+// state is restored (rollback), so the note reappears with no data loss.
+export function useDeleteNote() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => notesApi.delete(id),
+
+    onMutate: async (id) => {
+      // Cancel any in-flight list fetches that might overwrite our removal
+      await qc.cancelQueries({ queryKey: ['notes'] });
+
+      // Snapshot all list cache entries for rollback
+      const previousNotes = qc.getQueriesData<NotesResponse>({ queryKey: ['notes'] });
+
+      // Optimistically remove the note from every active list cache
+      qc.setQueriesData({ queryKey: ['notes'] }, (old: unknown) => {
+        if (!old || typeof old !== 'object' || !('data' in old)) return old;
+        const resp = old as NotesResponse;
+        return {
+          ...resp,
+          data:  resp.data.filter((n: Note) => n.id !== id),
+          // Decrement the total so the count in the header is correct immediately
+          total: Math.max(0, resp.total - 1),
+        };
+      });
+
+      return { previousNotes };
+    },
+
+    onError: (_err, _id, ctx) => {
+      // Rollback — restore all list snapshots so the note reappears
+      ctx?.previousNotes?.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+    },
+
+    onSettled: (_data, _err, id) => {
+      // Always sync with server — also refreshes the tag counts
+      qc.invalidateQueries({ queryKey: ['notes'] });
+      qc.invalidateQueries({ queryKey: ['note', id] });
+      qc.invalidateQueries({ queryKey: ['tags'] });
+    },
+  });
+}
+
 // Create a new note and invalidate the notes list so it re-fetches.
 export function useCreateNote() {
   const qc = useQueryClient();

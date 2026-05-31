@@ -5,16 +5,19 @@ import Placeholder from '@tiptap/extension-placeholder';
 import {
   Bold, Italic, Code, Heading1, Heading2,
   List, ListOrdered, Quote, Minus,
-  Loader2, Check, AlertCircle, Tag, X,
+  Loader2, Check, AlertCircle, Tag, X, Trash2,
 } from 'lucide-react';
 import type { Note } from '../types';
-import { useDebounce }   from '../hooks/useDebounce';
-import { useUpdateNote } from '../hooks/useNotes';
-import { parseTagInput } from '../utils/helpers';
+import { useDebounce }               from '../hooks/useDebounce';
+import { useUpdateNote, useDeleteNote } from '../hooks/useNotes';
+import { parseTagInput }              from '../utils/helpers';
+import { useNoteStore }               from '../store/noteStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const AUTOSAVE_DELAY_MS = 1_000;
+const MAX_TAG_LENGTH    =    50; // mirrors backend Zod schema max(50)
+const MAX_TAGS          =    10; // mirrors backend Zod schema max(10)
 const SAVED_LABEL_TTL   = 2_000; // how long "Saved" stays visible
 
 // ── Save state indicator ──────────────────────────────────────────────────────
@@ -83,6 +86,7 @@ interface Props {
 }
 
 export default function NoteEditor({ note }: Props) {
+  const { setSelectedNote }  = useNoteStore();
   const [title,     setTitle]     = useState(note.title);
   const [tags,      setTags]      = useState<string[]>(note.tags);
   const [tagInput,  setTagInput]  = useState('');
@@ -100,6 +104,7 @@ export default function NoteEditor({ note }: Props) {
   const contentTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateNote = useUpdateNote();
+  const deleteNote = useDeleteNote();
 
   // ── Save helper ─────────────────────────────────────────────────────────────
 
@@ -151,21 +156,9 @@ export default function NoteEditor({ note }: Props) {
     },
   });
 
-  // ── Sync when the selected note changes ────────────────────────────────────
-
-  useEffect(() => {
-    if (!editor) return;
-    setTitle(note.title);
-    setTags(note.tags);
-    setTagInput('');
-    latestContentRef.current = note.content;
-    editor.commands.setContent(note.content, false);
-    setSaveState('idle');
-    if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [note.id]);
-
   // ── Cleanup on unmount ─────────────────────────────────────────────────────
+  // Note: state reset on note change is handled by key={note.id} in App.tsx,
+  // which forces a full remount — no setState-in-effect needed here.
 
   useEffect(() => {
     return () => {
@@ -181,10 +174,21 @@ export default function NoteEditor({ note }: Props) {
     saveRef.current({ title: debouncedTitle });
   }, [debouncedTitle, note.title]);
 
-  // ── Tag management ────────────────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────────────────────────
 
-  const MAX_TAG_LENGTH = 50; // mirrors backend Zod schema constraint
-  const MAX_TAGS       = 10;
+  async function handleDelete() {
+    try {
+      // Optimistic removal fires immediately in useDeleteNote's onMutate —
+      // the note disappears from the list before the server responds.
+      await deleteNote.mutateAsync(note.id);
+      // Deselect after successful delete so the editor pane clears
+      setSelectedNote(null);
+    } catch {
+      // Cache rollback happens in useDeleteNote's onError — no local handling needed
+    }
+  }
+
+  // ── Tag management ────────────────────────────────────────────────────────
 
   function addTag(raw: string) {
     const parsed = parseTagInput(raw)
@@ -307,6 +311,18 @@ export default function NoteEditor({ note }: Props) {
 
         {/* Save state indicator — pushed to the right */}
         <SaveIndicator state={saveState} />
+
+        {/* Delete button — confirmation dialog added in commit 21 (trash) */}
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleteNote.isPending}
+          aria-label="Delete note"
+          title="Delete note"
+          className="ml-1 p-1.5 rounded text-text-faint hover:text-danger hover:bg-danger/10 transition-colors focus:outline-none focus:ring-1 focus:ring-danger disabled:opacity-50"
+        >
+          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
       </div>
 
       {/* ── Title input ───────────────────────────────────────────────────── */}

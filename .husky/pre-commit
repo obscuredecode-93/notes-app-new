@@ -15,10 +15,10 @@ npm test || { echo "✗ Backend tests failed — commit blocked"; exit 1; }
 echo "  → typecheck (frontend)"
 cd ../frontend && npx tsc --noEmit || { echo "✗ Frontend TypeScript errors — commit blocked"; exit 1; }
 
-# Frontend unit tests added when Vitest is set up (commit 9+)
-if [ -f "vitest.config.ts" ]; then
-  echo "  → tests (frontend)"
-  npx vitest run || { echo "✗ Frontend tests failed — commit blocked"; exit 1; }
-fi
+echo "  → lint (frontend)"
+npm run lint || { echo "✗ Frontend ESLint errors — commit blocked"; exit 1; }
+
+echo "  → tests (frontend)"
+npx vitest run || { echo "✗ Frontend tests failed — commit blocked"; exit 1; }
 
 echo "✓ All checks passed"

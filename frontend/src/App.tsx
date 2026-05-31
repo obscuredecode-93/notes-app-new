@@ -43,7 +43,10 @@ function EditorPane({ noteId }: { noteId: string }) {
   // Note might be undefined briefly while the query resolves
   if (!note) return null;
 
-  return <NoteEditor note={note} />;
+  // key={note.id} forces a full remount whenever the selected note changes.
+  // This resets all local state (title, tags, tagInput, saveState) automatically
+  // without needing a useEffect that calls setState — the recommended React pattern.
+  return <NoteEditor key={note.id} note={note} />;
 }
 
 // ── App shell ─────────────────────────────────────────────────────────────────
