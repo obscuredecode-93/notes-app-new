@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import type { SortBy, SortOrder } from '../types';
 
 // UI state only — server state (note data) lives in React Query.
-// Theme and trash state added in commits 19 and 21.
 interface NoteStore {
   selectedNoteId: string | null;
   setSelectedNote: (id: string | null) => void;
@@ -18,9 +17,21 @@ interface NoteStore {
   sortOrder:    SortOrder;
   setSortOrder: (v: SortOrder) => void;
 
-  // Reflects window.ononline / window.onoffline — wired in App.tsx
   isOnline:    boolean;
   setIsOnline: (v: boolean) => void;
+
+  // Theme — 'dark' by default, persisted to localStorage
+  theme:       'dark' | 'light';
+  toggleTheme: () => void;
+}
+
+function readTheme(): 'dark' | 'light' {
+  try {
+    const stored = localStorage.getItem('theme');
+    return stored === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark'; // localStorage unavailable (private browsing, SSR)
+  }
 }
 
 export const useNoteStore = create<NoteStore>((set) => ({
@@ -33,13 +44,21 @@ export const useNoteStore = create<NoteStore>((set) => ({
   selectedTag:    null,
   setSelectedTag: (tag)  => set({ selectedTag: tag }),
 
-  // Default: most recently modified first
   sortBy:       'updatedAt',
   setSortBy:    (v) => set({ sortBy: v }),
   sortOrder:    'desc',
   setSortOrder: (v) => set({ sortOrder: v }),
 
-  // navigator.onLine is the best initial value available before any events fire
   isOnline:    typeof navigator !== 'undefined' ? navigator.onLine : true,
   setIsOnline: (v) => set({ isOnline: v }),
+
+  theme: readTheme(),
+  toggleTheme: () =>
+    set((s) => {
+      const next = s.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('theme', next); } catch { /* ignore */ }
+      // Apply/remove .light on <html> immediately — no React re-render delay
+      document.documentElement.classList.toggle('light', next === 'light');
+      return { theme: next };
+    }),
 }));

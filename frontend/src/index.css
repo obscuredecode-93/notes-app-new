@@ -4,14 +4,40 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root { color-scheme: dark; }
+/* ── Design token CSS variables ───────────────────────────────────────────────
+   :root  = dark theme (default)
+   .light = light theme — toggled by adding the class to <html>
+   Tailwind's color config references var(--color-*) so all utilities
+   automatically pick up the right palette. */
 
+:root {
+  color-scheme: dark;
+  --color-bg-base:    #0F0F0F;
+  --color-bg-surface: #1A1A1A;
+  --color-bg-hover:   #222222;
+  --color-border-col: #2A2A2A;
+  --color-text-pri:   #F5F5F5;
+  --color-text-sec:   #888888;
+  --color-text-faint: #555555;
+}
+
+.light {
+  color-scheme: light;
+  --color-bg-base:    #FFFFFF;
+  --color-bg-surface: #F3F4F6;
+  --color-bg-hover:   #E5E7EB;
+  --color-border-col: #D1D5DB;
+  --color-text-pri:   #111827;
+  --color-text-sec:   #6B7280;
+  --color-text-faint: #9CA3AF;
+}
+
+@layer base {
   html, body, #root { @apply h-full; }
 
   body { @apply bg-bg-base text-text-pri font-sans antialiased; }
 
-  /* Slim scrollbar that matches the dark palette */
+  /* Slim scrollbar */
   ::-webkit-scrollbar       { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { @apply bg-bg-base; }
   ::-webkit-scrollbar-thumb { @apply bg-border-col rounded-full; }
@@ -25,7 +51,6 @@
     @apply outline-none min-h-[20rem] text-[15px] leading-7 text-text-pri;
   }
 
-  /* Placeholder text injected by @tiptap/extension-placeholder */
   .ProseMirror p.is-editor-empty:first-child::before {
     @apply text-text-faint pointer-events-none float-left h-0;
     content: attr(data-placeholder);
@@ -57,6 +82,5 @@
 }
 
 @layer utilities {
-  /* Skeleton loading placeholder — used by LoadingState component */
   .skeleton { @apply animate-pulse bg-bg-surface rounded; }
 }

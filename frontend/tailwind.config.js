@@ -5,14 +5,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Design tokens — dark palette
-        'bg-base':    '#0F0F0F',
-        'bg-surface': '#1A1A1A',
-        'bg-hover':   '#222222',
-        'border-col': '#2A2A2A',
-        'text-pri':   '#F5F5F5',
-        'text-sec':   '#888888',
-        'text-faint': '#555555',
+        // Themed tokens — resolved from CSS custom properties so a single
+        // .light class on <html> swaps the entire palette without touching components.
+        // None of these are used with Tailwind opacity modifiers (bg-bg-base/50),
+        // so plain CSS variables work fine here.
+        'bg-base':    'var(--color-bg-base)',
+        'bg-surface': 'var(--color-bg-surface)',
+        'bg-hover':   'var(--color-bg-hover)',
+        'border-col': 'var(--color-border-col)',
+        'text-pri':   'var(--color-text-pri)',
+        'text-sec':   'var(--color-text-sec)',
+        'text-faint': 'var(--color-text-faint)',
+        // Semantic colours — same in both themes, kept as static hex values so
+        // opacity modifiers (bg-accent/10, bg-danger/5, etc.) keep working.
         accent:       '#6366F1',
         'accent-dim': '#4F52D4',
         success:      '#22C55E',
@@ -29,7 +34,7 @@ export default {
         'slide-in': 'slideIn 0.2s ease-out',
       },
       keyframes: {
-        fadeIn:  { from: { opacity: '0' },                              to: { opacity: '1' } },
+        fadeIn:  { from: { opacity: '0' },                                to: { opacity: '1' } },
         slideIn: { from: { transform: 'translateY(-4px)', opacity: '0' }, to: { transform: 'translateY(0)', opacity: '1' } },
       },
     },

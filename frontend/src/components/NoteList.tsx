@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Plus, WifiOff } from 'lucide-react';
+import { Plus, WifiOff, Sun, Moon } from 'lucide-react';
 import { useNoteStore }                        from '../store/noteStore';
 import { useNotes, useCreateNote, useDeleteNote } from '../hooks/useNotes';
 import { useDebounce }                         from '../hooks/useDebounce';
@@ -24,6 +24,7 @@ export default function NoteList() {
     sortBy,         setSortBy,
     sortOrder,      setSortOrder,
     isOnline,
+    theme,          toggleTheme,
   } = useNoteStore();
 
   const debouncedSearch = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
@@ -162,6 +163,22 @@ export default function NoteList() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ── Theme toggle ─────────────────────────────────────────────────── */}
+      <div className="px-4 py-3 border-t border-border-col shrink-0">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="flex items-center gap-2 text-xs text-text-faint hover:text-text-sec transition-colors focus:outline-none focus:ring-1 focus:ring-accent rounded"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark'
+            ? <Sun  className="w-3.5 h-3.5" aria-hidden="true" />
+            : <Moon className="w-3.5 h-3.5" aria-hidden="true" />
+          }
+          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        </button>
       </div>
     </div>
   );
