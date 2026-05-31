@@ -109,32 +109,36 @@
    ONLY text properties are changed — no width, padding, border, background,
    or layout properties that would cause the container to shift on toggle. */
 
+/* Shared layout reset — headings behave like <p> blocks, no structural change */
 .ProseMirror h1,
 .ProseMirror h2,
 .ProseMirror h3 {
-  /* Headings flow naturally in the block layout — same box model as <p> */
   display: block;
   width: auto;
   box-sizing: border-box;
   color: var(--color-text-pri);
-  /* Small, uniform margin — avoids large jumps when toggling heading on/off */
-  margin: 0.25rem 0;
 }
 
 .ProseMirror h1 {
   font-size: 2rem;
   font-weight: 700;
   line-height: 1.25;
+  font-family: 'Instrument Serif', Georgia, serif;
+  /* Moderate margin: enough visual separation, not so large it causes a big jump */
+  margin: 0.75rem 0 0.4rem;
 }
 
 .ProseMirror h2 {
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.3;
+  font-family: 'Instrument Serif', Georgia, serif;
+  margin: 0.6rem 0 0.3rem;
 }
 
 .ProseMirror h3 {
   font-size: 1.2rem;
   font-weight: 600;
   line-height: 1.4;
+  margin: 0.5rem 0 0.25rem;
 }
