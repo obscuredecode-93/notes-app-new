@@ -5,6 +5,7 @@ import { useNotes, useCreateNote } from '../hooks/useNotes';
 import { useDebounce }            from '../hooks/useDebounce';
 import NoteCard     from './NoteCard';
 import SearchBar    from './SearchBar';
+import SortControls from './SortControls';
 import TagFilter    from './TagFilter';
 import LoadingState from './LoadingState';
 import EmptyState   from './EmptyState';
@@ -18,6 +19,8 @@ export default function NoteList() {
     selectedNoteId, setSelectedNote,
     searchQuery,    setSearchQuery,
     selectedTag,    setSelectedTag,
+    sortBy,         setSortBy,
+    sortOrder,      setSortOrder,
   } = useNoteStore();
 
   const debouncedSearch = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
@@ -25,6 +28,8 @@ export default function NoteList() {
   const { data, isLoading, isError } = useNotes({
     search: debouncedSearch || undefined,
     tag:    selectedTag    || undefined,
+    sort:   sortBy,
+    order:  sortOrder,
   });
   const createNote = useCreateNote();
 
@@ -37,8 +42,7 @@ export default function NoteList() {
     }
   }
 
-  const notes = data?.data ?? [];
-  // Active filter = search or tag is set
+  const notes     = data?.data ?? [];
   const isFiltered = !!debouncedSearch || !!selectedTag;
 
   return (
@@ -74,6 +78,14 @@ export default function NoteList() {
       <div className="px-3 py-2 border-b border-border-col shrink-0">
         <SearchBar ref={searchRef} value={searchQuery} onChange={setSearchQuery} />
       </div>
+
+      {/* ── Sort controls ─────────────────────────────────────────────────── */}
+      <SortControls
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSortBy={setSortBy}
+        onSortOrder={setSortOrder}
+      />
 
       {/* ── Tag filter — hidden when no tags exist ─────────────────────────── */}
       <TagFilter selected={selectedTag} onSelect={setSelectedTag} />
