@@ -13,10 +13,14 @@ interface NoteStore {
   selectedTag:    string | null;
   setSelectedTag: (tag: string | null) => void;
 
-  sortBy:      SortBy;
-  setSortBy:   (v: SortBy)    => void;
-  sortOrder:   SortOrder;
-  setSortOrder:(v: SortOrder) => void;
+  sortBy:       SortBy;
+  setSortBy:    (v: SortBy)    => void;
+  sortOrder:    SortOrder;
+  setSortOrder: (v: SortOrder) => void;
+
+  // Reflects window.ononline / window.onoffline — wired in App.tsx
+  isOnline:    boolean;
+  setIsOnline: (v: boolean) => void;
 }
 
 export const useNoteStore = create<NoteStore>((set) => ({
@@ -34,4 +38,8 @@ export const useNoteStore = create<NoteStore>((set) => ({
   setSortBy:    (v) => set({ sortBy: v }),
   sortOrder:    'desc',
   setSortOrder: (v) => set({ sortOrder: v }),
+
+  // navigator.onLine is the best initial value available before any events fire
+  isOnline:    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  setIsOnline: (v) => set({ isOnline: v }),
 }));

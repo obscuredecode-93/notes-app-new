@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, WifiOff } from 'lucide-react';
 import { useNoteStore }                        from '../store/noteStore';
 import { useNotes, useCreateNote, useDeleteNote } from '../hooks/useNotes';
 import { useDebounce }                         from '../hooks/useDebounce';
@@ -10,6 +10,7 @@ import SortControls from './SortControls';
 import TagFilter    from './TagFilter';
 import LoadingState from './LoadingState';
 import EmptyState   from './EmptyState';
+import ErrorState   from './ErrorState';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -22,11 +23,12 @@ export default function NoteList() {
     selectedTag,    setSelectedTag,
     sortBy,         setSortBy,
     sortOrder,      setSortOrder,
+    isOnline,
   } = useNoteStore();
 
   const debouncedSearch = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
 
-  const { data, isLoading, isError } = useNotes({
+  const { data, isLoading, isError, refetch } = useNotes({
     search: debouncedSearch || undefined,
     tag:    selectedTag    || undefined,
     sort:   sortBy,
@@ -76,6 +78,18 @@ export default function NoteList() {
   return (
     <div className="flex flex-col h-full">
 
+      {/* ── Offline banner ───────────────────────────────────────────────── */}
+      {!isOnline && (
+        <div
+          className="flex items-center justify-center gap-1.5 px-3 py-2 bg-warning/10 border-b border-warning/20 text-xs text-warning shrink-0"
+          role="status"
+          aria-live="polite"
+        >
+          <WifiOff className="w-3 h-3 shrink-0" aria-hidden="true" />
+          You are offline — changes will sync when reconnected
+        </div>
+      )}
+
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-col shrink-0">
         <div className="flex items-center gap-2">
@@ -123,9 +137,10 @@ export default function NoteList() {
         {isLoading && <LoadingState />}
 
         {!isLoading && isError && (
-          <p className="p-4 text-xs text-danger" role="alert">
-            Failed to load notes — check your connection and refresh.
-          </p>
+          <ErrorState
+            message="Failed to load notes — check your connection and try again."
+            onRetry={refetch}
+          />
         )}
 
         {!isLoading && !isError && notes.length === 0 && (

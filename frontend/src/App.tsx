@@ -1,8 +1,10 @@
+import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useNoteStore } from './store/noteStore';
-import { useNote } from './hooks/useNotes';
-import NoteList   from './components/NoteList';
-import NoteEditor from './components/NoteEditor';
+import { useNote }      from './hooks/useNotes';
+import NoteList     from './components/NoteList';
+import NoteEditor   from './components/NoteEditor';
+import ErrorState   from './components/ErrorState';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -15,12 +17,9 @@ const queryClient = new QueryClient({
 });
 
 // ── Editor pane ───────────────────────────────────────────────────────────────
-// Fetches the selected note and renders the TipTap editor.
-// Kept as a separate component so the query hook is only active when a note
-// is actually selected — avoids a pointless network request on first load.
 
 function EditorPane({ noteId }: { noteId: string }) {
-  const { data: note, isLoading, isError } = useNote(noteId);
+  const { data: note, isLoading, isError, refetch } = useNote(noteId);
 
   if (isLoading) {
     return (
@@ -32,27 +31,39 @@ function EditorPane({ noteId }: { noteId: string }) {
 
   if (isError) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-xs text-danger" role="alert">
-          Failed to load note — it may have been deleted.
-        </p>
-      </div>
+      <ErrorState
+        message="Failed to load note — it may have been deleted."
+        onRetry={refetch}
+      />
     );
   }
 
-  // Note might be undefined briefly while the query resolves
   if (!note) return null;
 
-  // key={note.id} forces a full remount whenever the selected note changes.
-  // This resets all local state (title, tags, tagInput, saveState) automatically
-  // without needing a useEffect that calls setState — the recommended React pattern.
+  // key={note.id} forces a full remount when the selected note changes,
+  // resetting all local state without needing a setState-in-effect.
   return <NoteEditor key={note.id} note={note} />;
 }
 
 // ── App shell ─────────────────────────────────────────────────────────────────
 
 function AppShell() {
-  const { selectedNoteId } = useNoteStore();
+  const { selectedNoteId, setIsOnline } = useNoteStore();
+
+  // Track browser online/offline events and sync to the store so any
+  // component can read isOnline without its own event listener.
+  useEffect(() => {
+    const onOnline  = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+
+    window.addEventListener('online',  onOnline);
+    window.addEventListener('offline', onOffline);
+
+    return () => {
+      window.removeEventListener('online',  onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [setIsOnline]);
 
   return (
     <div className="flex h-full overflow-hidden bg-bg-base">
