@@ -302,18 +302,18 @@ describe('PATCH /notes/:id', () => {
   });
 });
 
-// ── DELETE /notes/:id ─────────────────────────────────────────────────────────
+// ── DELETE /notes/:id (soft delete) ──────────────────────────────────────────
 
 describe('DELETE /notes/:id', () => {
   beforeEach(reset);
 
-  it('deletes note and returns 204', async () => {
+  it('soft-deletes note and returns 204', async () => {
     const { body: n } = await request(app).post('/notes').send({ title: 'Gone' });
     const res = await request(app).delete(`/notes/${n.id}`);
     assert.equal(res.status, 204);
   });
 
-  it('note no longer appears in GET /notes after deletion', async () => {
+  it('note no longer appears in GET /notes after soft delete', async () => {
     const { body: n } = await request(app).post('/notes').send({ title: 'Delete me' });
     await request(app).delete(`/notes/${n.id}`);
     const list = await request(app).get('/notes');
@@ -324,6 +324,42 @@ describe('DELETE /notes/:id', () => {
     const res = await request(app).delete('/notes/nope');
     assert.equal(res.status, 404);
     assert.equal(res.body.error.code, 'NOT_FOUND');
+  });
+});
+
+// ── GET /notes/trash + restore + permanent delete ─────────────────────────────
+
+describe('Trash (soft delete, restore, permanent delete)', () => {
+  beforeEach(reset);
+
+  it('GET /notes/trash returns soft-deleted notes', async () => {
+    const { body: n } = await request(app).post('/notes').send({ title: 'Bin me' });
+    await request(app).delete(`/notes/${n.id}`);
+
+    const trash = await request(app).get('/notes/trash');
+    assert.equal(trash.status, 200);
+    assert.ok(trash.body.data.find((x: { id: string }) => x.id === n.id));
+  });
+
+  it('POST /notes/:id/restore moves note back to active list', async () => {
+    const { body: n } = await request(app).post('/notes').send({ title: 'Restore me' });
+    await request(app).delete(`/notes/${n.id}`);
+    const res = await request(app).post(`/notes/${n.id}/restore`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.deleted, false);
+
+    const list = await request(app).get('/notes');
+    assert.ok(list.body.data.find((x: { id: string }) => x.id === n.id));
+  });
+
+  it('DELETE /notes/:id/permanent hard-deletes from trash', async () => {
+    const { body: n } = await request(app).post('/notes').send({ title: 'Gone forever' });
+    await request(app).delete(`/notes/${n.id}`);
+    const res = await request(app).delete(`/notes/${n.id}/permanent`);
+    assert.equal(res.status, 204);
+
+    const trash = await request(app).get('/notes/trash');
+    assert.ok(!trash.body.data.find((x: { id: string }) => x.id === n.id));
   });
 });
 

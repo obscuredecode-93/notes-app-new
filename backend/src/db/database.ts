@@ -23,6 +23,11 @@ export function getDb(): DatabaseSync {
     db.exec('PRAGMA journal_mode = WAL');
     db.exec('PRAGMA foreign_keys = ON');
     db.exec(CREATE_TABLES);
+    // Idempotent migration: add soft-delete columns to existing DBs.
+    // ALTER TABLE fails if the column already exists — catch and ignore.
+    for (const col of ['deleted INTEGER NOT NULL DEFAULT 0', 'deletedAt TEXT']) {
+      try { db.exec(`ALTER TABLE notes ADD COLUMN ${col}`); } catch { /* already exists */ }
+    }
   }
   return db;
 }

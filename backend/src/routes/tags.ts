@@ -12,8 +12,9 @@ router.get('/', (_req: Request, res: Response) => {
   // Doing this in application code rather than SQL is simpler here because
   // SQLite's json_each() + GROUP BY approach requires a subquery that
   // becomes harder to read; for this data volume JS is fast enough.
+  // Exclude soft-deleted notes — trash items should not affect tag counts
   const rows = db.prepare(
-    "SELECT tags FROM notes WHERE tags != '[]'"
+    "SELECT tags FROM notes WHERE deleted = 0 AND tags != '[]'"
   ).all() as unknown as { tags: string }[];
 
   const counts = new Map<string, number>();
