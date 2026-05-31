@@ -48,11 +48,14 @@
   /* ── TipTap / ProseMirror editor content styles ──────────────────────────── */
 
   .ProseMirror {
-    @apply outline-none min-h-[20rem] text-[15px] leading-7 text-text-pri;
+    /* Padding lives here so it sits inside the bordered wrapper */
+    @apply outline-none min-h-[20rem] text-[15px] leading-7 text-text-pri p-5;
   }
 
   .ProseMirror p.is-editor-empty:first-child::before {
-    @apply text-text-faint pointer-events-none float-left h-0;
+    /* Use text-text-sec (not text-faint) so the placeholder is readable */
+    @apply text-text-sec pointer-events-none float-left h-0;
+    font-style: italic;
     content: attr(data-placeholder);
   }
 

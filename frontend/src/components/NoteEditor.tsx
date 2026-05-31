@@ -355,14 +355,14 @@ export default function NoteEditor({ note }: Props) {
       </div>
 
       {/* ── Title input ───────────────────────────────────────────────────── */}
-      <div className="px-6 pt-6 pb-2 shrink-0">
+      <div className="px-6 pt-6 pb-0 shrink-0">
         <input
           type="text"
           placeholder="Untitled"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           aria-label="Note title"
-          className="w-full text-3xl font-serif bg-transparent border-none outline-none text-text-pri placeholder:text-text-faint"
+          className="w-full text-3xl font-serif bg-transparent outline-none text-text-pri placeholder:text-text-faint border-b border-border-col pb-3 focus:border-accent transition-colors"
         />
       </div>
 
@@ -403,8 +403,18 @@ export default function NoteEditor({ note }: Props) {
       </div>
 
       {/* ── Editor content ───────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-6 pb-10" aria-label="Note content">
-        <EditorContent editor={editor} />
+      <div className="flex-1 overflow-y-auto px-6 pb-10 pt-4">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-text-faint mb-2 select-none">
+          Content
+        </p>
+        {/* Bordered wrapper — focus-within glow shows which area is active */}
+        <div
+          className="border border-border-col rounded-lg bg-bg-surface cursor-text transition-all duration-150 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/10"
+          onClick={() => editor?.commands.focus()}
+          aria-label="Note content"
+        >
+          <EditorContent editor={editor} />
+        </div>
       </div>
 
       {/* ── Delete confirmation dialog ────────────────────────────────────── */}
