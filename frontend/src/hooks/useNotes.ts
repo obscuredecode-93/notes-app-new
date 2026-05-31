@@ -149,6 +149,37 @@ export function useDeleteNote() {
   });
 }
 
+// ── Trash hooks ───────────────────────────────────────────────────────────────
+
+export function useTrash() {
+  return useQuery({
+    queryKey: ['trash'],
+    queryFn:  notesApi.trash,
+  });
+}
+
+export function useRestoreNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => notesApi.restore(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notes'] });
+      qc.invalidateQueries({ queryKey: ['trash'] });
+      qc.invalidateQueries({ queryKey: ['tags'] });
+    },
+  });
+}
+
+export function useDeletePermanent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => notesApi.deletePermanent(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trash'] });
+    },
+  });
+}
+
 // Create a new note and invalidate the notes list so it re-fetches.
 export function useCreateNote() {
   const qc = useQueryClient();

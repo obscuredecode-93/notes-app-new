@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { Plus, WifiOff, Sun, Moon } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Plus, WifiOff, Sun, Moon, Trash2 } from 'lucide-react';
 import { useNoteStore }                        from '../store/noteStore';
 import { useNotes, useCreateNote, useDeleteNote } from '../hooks/useNotes';
 import { useDebounce }                         from '../hooks/useDebounce';
@@ -11,11 +11,13 @@ import TagFilter    from './TagFilter';
 import LoadingState from './LoadingState';
 import EmptyState   from './EmptyState';
 import ErrorState   from './ErrorState';
+import TrashPanel   from './TrashPanel';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
 export default function NoteList() {
   const searchRef = useRef<HTMLInputElement>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
 
   const {
     selectedNoteId, setSelectedNote,
@@ -165,8 +167,9 @@ export default function NoteList() {
         )}
       </div>
 
-      {/* ── Theme toggle ─────────────────────────────────────────────────── */}
-      <div className="px-4 py-3 border-t border-border-col shrink-0">
+      {/* ── Footer ────────────────────────────────────────────────────────── */}
+      <div className="px-4 py-3 border-t border-border-col shrink-0 flex items-center justify-between">
+        {/* Theme toggle */}
         <button
           type="button"
           onClick={toggleTheme}
@@ -179,7 +182,21 @@ export default function NoteList() {
           }
           {theme === 'dark' ? 'Light mode' : 'Dark mode'}
         </button>
+
+        {/* Trash access */}
+        <button
+          type="button"
+          onClick={() => setTrashOpen(true)}
+          aria-label="Open trash"
+          title="Trash"
+          className="p-1.5 rounded text-text-faint hover:text-text-sec hover:bg-bg-hover transition-colors focus:outline-none focus:ring-1 focus:ring-accent"
+        >
+          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
       </div>
+
+      {/* Trash panel — rendered when open */}
+      {trashOpen && <TrashPanel onClose={() => setTrashOpen(false)} />}
     </div>
   );
 }

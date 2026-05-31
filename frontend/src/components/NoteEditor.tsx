@@ -8,10 +8,11 @@ import {
   Loader2, Check, AlertCircle, Tag, X, Trash2, Download,
 } from 'lucide-react';
 import type { Note } from '../types';
-import { useDebounce }               from '../hooks/useDebounce';
-import { useUpdateNote, useDeleteNote } from '../hooks/useNotes';
-import { parseTagInput, htmlToMarkdown } from '../utils/helpers';
-import { useNoteStore }               from '../store/noteStore';
+import { useDebounce }                    from '../hooks/useDebounce';
+import { useUpdateNote, useDeleteNote }   from '../hooks/useNotes';
+import { parseTagInput, htmlToMarkdown }  from '../utils/helpers';
+import { useNoteStore }                   from '../store/noteStore';
+import DeleteConfirmDialog                from './DeleteConfirmDialog';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -87,10 +88,11 @@ interface Props {
 
 export default function NoteEditor({ note }: Props) {
   const { setSelectedNote }  = useNoteStore();
-  const [title,     setTitle]     = useState(note.title);
-  const [tags,      setTags]      = useState<string[]>(note.tags);
-  const [tagInput,  setTagInput]  = useState('');
-  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [title,       setTitle]       = useState(note.title);
+  const [tags,        setTags]        = useState<string[]>(note.tags);
+  const [tagInput,    setTagInput]    = useState('');
+  const [saveState,   setSaveState]   = useState<SaveState>('idle');
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // Debounce the title so we only fire PATCH after 1 s of no typing
   const debouncedTitle = useDebounce(title, AUTOSAVE_DELAY_MS);
@@ -195,13 +197,12 @@ export default function NoteEditor({ note }: Props) {
 
   async function handleDelete() {
     try {
-      // Optimistic removal fires immediately in useDeleteNote's onMutate —
-      // the note disappears from the list before the server responds.
       await deleteNote.mutateAsync(note.id);
-      // Deselect after successful delete so the editor pane clears
       setSelectedNote(null);
     } catch {
-      // Cache rollback happens in useDeleteNote's onError — no local handling needed
+      // Cache rollback in useDeleteNote's onError
+    } finally {
+      setShowConfirm(false);
     }
   }
 
@@ -340,13 +341,13 @@ export default function NoteEditor({ note }: Props) {
           <Download className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
 
-        {/* Delete button — confirmation dialog added in commit 21 (trash) */}
+        {/* Delete — opens confirmation dialog */}
         <button
           type="button"
-          onClick={handleDelete}
+          onClick={() => setShowConfirm(true)}
           disabled={deleteNote.isPending}
           aria-label="Delete note"
-          title="Delete note"
+          title="Move note to trash"
           className="ml-1 p-1.5 rounded text-text-faint hover:text-danger hover:bg-danger/10 transition-colors focus:outline-none focus:ring-1 focus:ring-danger disabled:opacity-50"
         >
           <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
@@ -405,6 +406,16 @@ export default function NoteEditor({ note }: Props) {
       <div className="flex-1 overflow-y-auto px-6 pb-10" aria-label="Note content">
         <EditorContent editor={editor} />
       </div>
+
+      {/* ── Delete confirmation dialog ────────────────────────────────────── */}
+      {showConfirm && (
+        <DeleteConfirmDialog
+          title={title}
+          loading={deleteNote.isPending}
+          onConfirm={handleDelete}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
 
     </div>
   );

@@ -61,6 +61,20 @@ export const notesApi = {
   delete: (id: string): Promise<void> =>
     request(`/notes/${id}`, { method: 'DELETE' }),
 
+  // ── Trash endpoints ───────────────────────────────────────────────────────
+
+  // Fetch all soft-deleted notes (the trash)
+  trash: (): Promise<{ data: Note[] }> =>
+    request('/notes/trash'),
+
+  // Move a note from trash back to the active list
+  restore: (id: string): Promise<Note> =>
+    request(`/notes/${id}/restore`, { method: 'POST' }),
+
+  // Permanently destroy a note that is already in the trash
+  deletePermanent: (id: string): Promise<void> =>
+    request(`/notes/${id}/permanent`, { method: 'DELETE' }),
+
   tags: (): Promise<Tag[]> =>
     request('/tags'),
 };

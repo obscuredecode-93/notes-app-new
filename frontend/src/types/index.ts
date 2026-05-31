@@ -1,12 +1,14 @@
 // ── Core domain types — kept in sync with the backend's Note interface ────────
 
 export interface Note {
-  id:        string;
-  title:     string;
-  content:   string;   // HTML string produced by TipTap
-  tags:      string[];
-  createdAt: string;   // ISO 8601 timestamp
-  updatedAt: string;
+  id:         string;
+  title:      string;
+  content:    string;        // HTML string produced by TipTap
+  tags:       string[];
+  deleted:    boolean;       // true when soft-deleted (in trash)
+  deletedAt:  string | null; // ISO 8601 timestamp, null when not deleted
+  createdAt:  string;        // ISO 8601 timestamp
+  updatedAt:  string;
 }
 
 export interface Tag {
