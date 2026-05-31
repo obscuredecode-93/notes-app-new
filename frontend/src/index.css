@@ -59,13 +59,7 @@
     content: attr(data-placeholder);
   }
 
-  .ProseMirror p          { @apply mb-3; }
-
-  /* Headings — font-weight must be explicit because Tailwind Preflight resets
-     h1/h2/h3 to font-weight: inherit (same as body) */
-  .ProseMirror h1 { font-size: 2rem;   font-weight: 700; line-height: 1.25; @apply font-serif mt-6 mb-3 text-text-pri; }
-  .ProseMirror h2 { font-size: 1.5rem; font-weight: 700; line-height: 1.3;  @apply font-serif mt-5 mb-2 text-text-pri; }
-  .ProseMirror h3 { font-size: 1.25rem; font-weight: 600; line-height: 1.4; @apply mt-4 mb-2 text-text-pri; }
+  .ProseMirror p { @apply mb-3; }
 
   /* Lists — use padding-left, NOT margin-left.
      Bullet/number markers live in the padding area of the <ul>/<ol>.
@@ -106,4 +100,37 @@
 
 @layer utilities {
   .skeleton { @apply animate-pulse bg-bg-surface rounded; }
+}
+
+/* ── ProseMirror heading overrides — OUTSIDE @layer ─────────────────────────
+   Unlayered CSS has higher priority than any @layer rule (including Tailwind
+   Preflight which resets h1/h2/h3 font-size to "inherit").
+   These rules must stay outside @layer to reliably override the reset. */
+.ProseMirror h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.25;
+  font-family: 'Instrument Serif', Georgia, serif;
+  color: var(--color-text-pri);
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+  font-family: 'Instrument Serif', Georgia, serif;
+  color: var(--color-text-pri);
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.ProseMirror h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-text-pri);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
 }

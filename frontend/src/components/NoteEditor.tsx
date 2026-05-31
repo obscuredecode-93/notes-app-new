@@ -94,6 +94,12 @@ export default function NoteEditor({ note }: Props) {
   const [saveState,   setSaveState]   = useState<SaveState>('idle');
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // TipTap v3: editor.isActive() does not automatically cause a re-render when
+  // the cursor moves or selection changes. onTransaction fires on every editor
+  // state change (cursor move, selection, formatting toggle) and increments a
+  // counter, forcing React to re-render so toolbar active states stay correct.
+  const [, forceToolbarUpdate] = useState(0);
+
   // Debounce the title so we only fire PATCH after 1 s of no typing
   const debouncedTitle = useDebounce(title, AUTOSAVE_DELAY_MS);
 
@@ -142,24 +148,25 @@ export default function NoteEditor({ note }: Props) {
 
   const editor = useEditor({
     extensions: [
-      // Explicitly configure each node so nothing is accidentally disabled.
-      // All options below are the defaults — listing them makes intent clear
-      // and protects against future StarterKit version changes.
       StarterKit.configure({
-        heading:       { levels: [1, 2, 3] },
-        bulletList:    {},
-        orderedList:   {},
-        blockquote:    {},
-        bold:          {},
-        italic:        {},
-        strike:        {},
-        code:          {},
-        codeBlock:     {},
-        horizontalRule:{},
+        heading:        { levels: [1, 2, 3] },
+        bulletList:     {},
+        orderedList:    {},
+        blockquote:     {},
+        bold:           {},
+        italic:         {},
+        strike:         {},
+        code:           {},
+        codeBlock:      {},
+        horizontalRule: {},
       }),
       Placeholder.configure({ placeholder: 'Start writing…' }),
     ],
     content: note.content,
+    // Fires on every state change (cursor move, selection, format toggle).
+    // Increments the counter above so React re-renders and toolbar
+    // editor.isActive() calls reflect the current cursor position.
+    onTransaction: () => forceToolbarUpdate((n) => n + 1),
     onUpdate: ({ editor: e }) => {
       const html = e.getHTML();
       latestContentRef.current = html;
