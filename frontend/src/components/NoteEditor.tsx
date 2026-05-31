@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, useEditorState } from '@tiptap/react';
 import StarterKit  from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import {
@@ -94,11 +94,6 @@ export default function NoteEditor({ note }: Props) {
   const [saveState,   setSaveState]   = useState<SaveState>('idle');
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // TipTap v3: editor.isActive() does not automatically cause a re-render when
-  // the cursor moves or selection changes. onTransaction fires on every editor
-  // state change (cursor move, selection, formatting toggle) and increments a
-  // counter, forcing React to re-render so toolbar active states stay correct.
-  const [, forceToolbarUpdate] = useState(0);
 
   // Debounce the title so we only fire PATCH after 1 s of no typing
   const debouncedTitle = useDebounce(title, AUTOSAVE_DELAY_MS);
@@ -115,6 +110,32 @@ export default function NoteEditor({ note }: Props) {
   const deleteNote = useDeleteNote();
 
   // ── Save helper ─────────────────────────────────────────────────────────────
+
+  // TipTap v3 requires useEditorState for reactive toolbar state.
+  // Calling editor.isActive() directly in render does NOT subscribe to changes —
+  // useEditorState re-runs the selector on every transaction/selection update.
+  const toolbar = useEditorState({
+    editor,
+    selector: (ctx) => {
+      const e = ctx.editor;
+      if (!e) return {
+        isBold: false, isItalic: false, isCode: false,
+        isH1: false, isH2: false,
+        isBulletList: false, isOrderedList: false,
+        isBlockquote: false,
+      };
+      return {
+        isBold:        e.isActive('bold'),
+        isItalic:      e.isActive('italic'),
+        isCode:        e.isActive('code'),
+        isH1:          e.isActive('heading', { level: 1 }),
+        isH2:          e.isActive('heading', { level: 2 }),
+        isBulletList:  e.isActive('bulletList'),
+        isOrderedList: e.isActive('orderedList'),
+        isBlockquote:  e.isActive('blockquote'),
+      };
+    },
+  });
 
   // Use a ref so the save function is always current inside callbacks/effects
   // without needing to be listed as a dependency
@@ -163,10 +184,6 @@ export default function NoteEditor({ note }: Props) {
       Placeholder.configure({ placeholder: 'Start writing…' }),
     ],
     content: note.content,
-    // Fires on every state change (cursor move, selection, format toggle).
-    // Increments the counter above so React re-renders and toolbar
-    // editor.isActive() calls reflect the current cursor position.
-    onTransaction: () => forceToolbarUpdate((n) => n + 1),
     onUpdate: ({ editor: e }) => {
       const html = e.getHTML();
       latestContentRef.current = html;
@@ -272,7 +289,7 @@ export default function NoteEditor({ note }: Props) {
           <>
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBold().run()}
-              active={editor.isActive('bold')}
+              active={toolbar.isBold}
               title="Bold (⌘B)"
             >
               <Bold className="w-3.5 h-3.5" aria-hidden="true" />
@@ -280,7 +297,7 @@ export default function NoteEditor({ note }: Props) {
 
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleItalic().run()}
-              active={editor.isActive('italic')}
+              active={toolbar.isItalic}
               title="Italic (⌘I)"
             >
               <Italic className="w-3.5 h-3.5" aria-hidden="true" />
@@ -290,7 +307,7 @@ export default function NoteEditor({ note }: Props) {
 
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-              active={editor.isActive('heading', { level: 1 })}
+              active={toolbar.isH1}
               title="Heading 1"
             >
               <Heading1 className="w-3.5 h-3.5" aria-hidden="true" />
@@ -298,7 +315,7 @@ export default function NoteEditor({ note }: Props) {
 
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-              active={editor.isActive('heading', { level: 2 })}
+              active={toolbar.isH2}
               title="Heading 2"
             >
               <Heading2 className="w-3.5 h-3.5" aria-hidden="true" />
@@ -308,7 +325,7 @@ export default function NoteEditor({ note }: Props) {
 
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBulletList().run()}
-              active={editor.isActive('bulletList')}
+              active={toolbar.isBulletList}
               title="Bullet list"
             >
               <List className="w-3.5 h-3.5" aria-hidden="true" />
@@ -316,7 +333,7 @@ export default function NoteEditor({ note }: Props) {
 
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleOrderedList().run()}
-              active={editor.isActive('orderedList')}
+              active={toolbar.isOrderedList}
               title="Numbered list"
             >
               <ListOrdered className="w-3.5 h-3.5" aria-hidden="true" />
@@ -324,7 +341,7 @@ export default function NoteEditor({ note }: Props) {
 
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
-              active={editor.isActive('blockquote')}
+              active={toolbar.isBlockquote}
               title="Blockquote"
             >
               <Quote className="w-3.5 h-3.5" aria-hidden="true" />
@@ -332,7 +349,7 @@ export default function NoteEditor({ note }: Props) {
 
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleCode().run()}
-              active={editor.isActive('code')}
+              active={toolbar.isCode}
               title="Inline code"
             >
               <Code className="w-3.5 h-3.5" aria-hidden="true" />
