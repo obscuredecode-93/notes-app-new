@@ -23,7 +23,7 @@ const SAVED_LABEL_TTL   = 2_000; // how long "Saved" stays visible
 
 // ── Save state indicator ──────────────────────────────────────────────────────
 
-type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+type SaveState = 'idle' | 'saving' | 'saved' | 'error' | 'offline';
 
 // The aria-live region must remain in the DOM at all times.
 // Screen readers only announce changes to *existing* live regions — if the
@@ -46,6 +46,10 @@ function SaveIndicator({ state }: { state: SaveState }) {
       {state === 'error' && (
         <><AlertCircle className="w-3 h-3 text-danger" aria-hidden="true" />
           <span className="text-danger">Failed to save</span></>
+      )}
+      {state === 'offline' && (
+        <><AlertCircle className="w-3 h-3 text-warning" aria-hidden="true" />
+          <span className="text-warning">Offline — not saved</span></>
       )}
     </span>
   );
@@ -109,6 +113,10 @@ export default function NoteEditor({ note }: Props) {
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
 
+  // Track a patch that failed because we were offline so we can retry it
+  // automatically the moment the connection is restored.
+  const pendingPatchRef = useRef<Partial<Pick<Note, 'title' | 'content' | 'tags'>> | null>(null);
+
   // ── Save helper ─────────────────────────────────────────────────────────────
 
   // Use a ref so the save function is always current inside callbacks/effects
@@ -128,12 +136,22 @@ export default function NoteEditor({ note }: Props) {
   // Keep saveRef.current up-to-date whenever note.id or updateNote changes
   useEffect(() => {
     saveRef.current = async (patch) => {
+      // If offline, store the patch and surface a specific "Offline" indicator
+      // rather than firing a request that will immediately fail.
+      if (!navigator.onLine) {
+        pendingPatchRef.current = { ...(pendingPatchRef.current ?? {}), ...patch };
+        setSaveState('offline');
+        return;
+      }
+
       setSaveState('saving');
       try {
         await updateNote.mutateAsync({ id: note.id, ...patch });
+        pendingPatchRef.current = null; // clear any pending patch on success
         setSaveState('saved');
         setTimeout(() => setSaveState((s) => (s === 'saved' ? 'idle' : s)), SAVED_LABEL_TTL);
       } catch {
+        // Could be a transient network error even if navigator.onLine is true
         setSaveState('error');
       }
     };
@@ -207,6 +225,20 @@ export default function NoteEditor({ note }: Props) {
       if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
     };
   }, []);
+
+  // ── Auto-retry on reconnect ────────────────────────────────────────────────
+  // When the browser goes back online and we have a pending patch, retry it.
+  // isOnline is read from the Zustand store which is updated by App.tsx listeners.
+
+  const { isOnline } = useNoteStore();
+
+  useEffect(() => {
+    if (isOnline && saveState === 'offline' && pendingPatchRef.current) {
+      const patch = pendingPatchRef.current;
+      pendingPatchRef.current = null;
+      saveRef.current(patch);
+    }
+  }, [isOnline, saveState]);
 
   // ── Auto-save title ────────────────────────────────────────────────────────
 
