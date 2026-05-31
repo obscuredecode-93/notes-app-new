@@ -11,6 +11,7 @@ import type { Note } from '../types';
 import { useDebounce }                    from '../hooks/useDebounce';
 import { useUpdateNote, useDeleteNote }   from '../hooks/useNotes';
 import { parseTagInput, htmlToMarkdown }  from '../utils/helpers';
+import { shortcut }                        from '../utils/keyboard';
 import { useNoteStore }                   from '../store/noteStore';
 import DeleteConfirmDialog                from './DeleteConfirmDialog';
 
@@ -322,7 +323,7 @@ export default function NoteEditor({ note }: Props) {
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBold().run()}
               active={toolbar.isBold}
-              title="Bold (⌘B)"
+              title={`Bold (${shortcut('B')})`}
             >
               <Bold className="w-3.5 h-3.5" aria-hidden="true" />
             </ToolbarButton>
@@ -330,7 +331,7 @@ export default function NoteEditor({ note }: Props) {
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleItalic().run()}
               active={toolbar.isItalic}
-              title="Italic (⌘I)"
+              title={`Italic (${shortcut('I')})`}
             >
               <Italic className="w-3.5 h-3.5" aria-hidden="true" />
             </ToolbarButton>

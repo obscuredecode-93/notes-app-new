@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import { useNoteStore }  from './store/noteStore';
+import { shortcut }      from './utils/keyboard';
 import { useNote }       from './hooks/useNotes';
 import NoteList     from './components/NoteList';
 import NoteEditor   from './components/NoteEditor';
@@ -115,7 +116,7 @@ function AppShell() {
             <p className="text-xs text-text-faint">
               Select a note or press{' '}
               <kbd className="px-1 py-0.5 text-[10px] bg-bg-surface border border-border-col rounded">
-                ⌘N
+                {shortcut('N')}
               </kbd>{' '}
               to create one
             </p>
