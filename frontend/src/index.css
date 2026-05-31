@@ -103,34 +103,38 @@
 }
 
 /* ── ProseMirror heading overrides — OUTSIDE @layer ─────────────────────────
-   Unlayered CSS has higher priority than any @layer rule (including Tailwind
-   Preflight which resets h1/h2/h3 font-size to "inherit").
-   These rules must stay outside @layer to reliably override the reset. */
+   Must stay outside @layer so unlayered CSS beats Tailwind Preflight
+   (which resets h1/h2/h3 to font-size: inherit; font-weight: inherit).
+
+   ONLY text properties are changed — no width, padding, border, background,
+   or layout properties that would cause the container to shift on toggle. */
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  /* Headings flow naturally in the block layout — same box model as <p> */
+  display: block;
+  width: auto;
+  box-sizing: border-box;
+  color: var(--color-text-pri);
+  /* Small, uniform margin — avoids large jumps when toggling heading on/off */
+  margin: 0.25rem 0;
+}
+
 .ProseMirror h1 {
   font-size: 2rem;
   font-weight: 700;
   line-height: 1.25;
-  font-family: 'Instrument Serif', Georgia, serif;
-  color: var(--color-text-pri);
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
 }
 
 .ProseMirror h2 {
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.3;
-  font-family: 'Instrument Serif', Georgia, serif;
-  color: var(--color-text-pri);
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
 }
 
 .ProseMirror h3 {
   font-size: 1.2rem;
   font-weight: 600;
   line-height: 1.4;
-  color: var(--color-text-pri);
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
 }
