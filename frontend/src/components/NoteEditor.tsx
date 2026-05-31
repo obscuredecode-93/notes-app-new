@@ -5,11 +5,12 @@ import Placeholder from '@tiptap/extension-placeholder';
 import {
   Bold, Italic, Code, Heading1, Heading2,
   List, ListOrdered, Quote, Minus,
-  Loader2, Check, AlertCircle,
+  Loader2, Check, AlertCircle, Tag, X,
 } from 'lucide-react';
 import type { Note } from '../types';
-import { useDebounce }    from '../hooks/useDebounce';
-import { useUpdateNote }  from '../hooks/useNotes';
+import { useDebounce }   from '../hooks/useDebounce';
+import { useUpdateNote } from '../hooks/useNotes';
+import { parseTagInput } from '../utils/helpers';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,8 @@ interface Props {
 
 export default function NoteEditor({ note }: Props) {
   const [title,     setTitle]     = useState(note.title);
+  const [tags,      setTags]      = useState<string[]>(note.tags);
+  const [tagInput,  setTagInput]  = useState('');
   const [saveState, setSaveState] = useState<SaveState>('idle');
 
   // Debounce the title so we only fire PATCH after 1 s of no typing
@@ -103,7 +106,7 @@ export default function NoteEditor({ note }: Props) {
   // Use a ref so the save function is always current inside callbacks/effects
   // without needing to be listed as a dependency
   const saveRef = useRef(
-    async (patch: Partial<Pick<Note, 'title' | 'content'>>) => {
+    async (patch: Partial<Pick<Note, 'title' | 'content' | 'tags'>>) => {
       setSaveState('saving');
       try {
         await updateNote.mutateAsync({ id: note.id, ...patch });
@@ -153,10 +156,11 @@ export default function NoteEditor({ note }: Props) {
   useEffect(() => {
     if (!editor) return;
     setTitle(note.title);
+    setTags(note.tags);
+    setTagInput('');
     latestContentRef.current = note.content;
     editor.commands.setContent(note.content, false);
     setSaveState('idle');
-    // Cancel any pending content save from the previous note
     if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
@@ -176,6 +180,39 @@ export default function NoteEditor({ note }: Props) {
     if (debouncedTitle === note.title) return;
     saveRef.current({ title: debouncedTitle });
   }, [debouncedTitle, note.title]);
+
+  // ── Tag management ────────────────────────────────────────────────────────
+
+  const MAX_TAG_LENGTH = 50; // mirrors backend Zod schema constraint
+  const MAX_TAGS       = 10;
+
+  function addTag(raw: string) {
+    const parsed = parseTagInput(raw)
+      // Silently drop any tag that exceeds the backend's 50-char limit rather
+      // than letting the save fail with a generic "Failed to save" message.
+      .filter((t) => t.length <= MAX_TAG_LENGTH);
+    if (!parsed.length) return;
+    const next = [...new Set([...tags, ...parsed])].slice(0, MAX_TAGS);
+    setTags(next);
+    setTagInput('');
+    saveRef.current({ tags: next });
+  }
+
+  function removeTag(tag: string) {
+    const next = tags.filter((t) => t !== tag);
+    setTags(next);
+    saveRef.current({ tags: next });
+  }
+
+  function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+      e.preventDefault();
+      addTag(tagInput);
+    } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+      // Remove the last tag when backspacing on an empty input
+      removeTag(tags[tags.length - 1]);
+    }
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -282,6 +319,42 @@ export default function NoteEditor({ note }: Props) {
           aria-label="Note title"
           className="w-full text-3xl font-serif bg-transparent border-none outline-none text-text-pri placeholder:text-text-faint"
         />
+      </div>
+
+      {/* ── Tag input ────────────────────────────────────────────────────── */}
+      <div className="px-6 pb-3 flex flex-wrap items-center gap-1.5 shrink-0">
+        <Tag className="w-3.5 h-3.5 text-text-faint shrink-0" aria-hidden="true" />
+
+        {/* Existing tag chips */}
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-accent/10 text-accent border border-accent/20"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(tag)}
+              aria-label={`Remove tag ${tag}`}
+              className="hover:text-white transition-colors focus:outline-none"
+            >
+              <X className="w-2.5 h-2.5" aria-hidden="true" />
+            </button>
+          </span>
+        ))}
+
+        {/* New tag input — hidden when at the 10-tag limit */}
+        {tags.length < 10 && (
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={handleTagKeyDown}
+            placeholder={tags.length === 0 ? 'Add tags…' : '+'}
+            aria-label="Add tag"
+            className="text-xs bg-transparent outline-none text-text-sec placeholder:text-text-faint min-w-[60px] max-w-[120px]"
+          />
+        )}
       </div>
 
       {/* ── Editor content ───────────────────────────────────────────────── */}

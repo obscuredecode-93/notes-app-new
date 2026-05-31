@@ -95,6 +95,15 @@ export function useUpdateNote() {
   });
 }
 
+// Fetch the tag list with per-tag counts. Used by TagFilter.
+export function useTags() {
+  return useQuery({
+    queryKey:  ['tags'],
+    queryFn:   notesApi.tags,
+    staleTime: 60_000,
+  });
+}
+
 // Create a new note and invalidate the notes list so it re-fetches.
 export function useCreateNote() {
   const qc = useQueryClient();
@@ -102,8 +111,8 @@ export function useCreateNote() {
     mutationFn: (data: Partial<Pick<Note, 'title' | 'content' | 'tags'>>) =>
       notesApi.create(data),
     onSuccess: () => {
-      // Invalidate all note list queries regardless of active filters
       qc.invalidateQueries({ queryKey: ['notes'] });
+      qc.invalidateQueries({ queryKey: ['tags'] });
     },
   });
 }

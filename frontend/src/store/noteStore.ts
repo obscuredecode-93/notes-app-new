@@ -8,6 +8,9 @@ interface NoteStore {
 
   searchQuery:    string;
   setSearchQuery: (q: string) => void;
+
+  selectedTag:    string | null;
+  setSelectedTag: (tag: string | null) => void;
 }
 
 export const useNoteStore = create<NoteStore>((set) => ({
@@ -16,4 +19,7 @@ export const useNoteStore = create<NoteStore>((set) => ({
 
   searchQuery:    '',
   setSearchQuery: (q) => set({ searchQuery: q }),
+
+  selectedTag:    null,
+  setSelectedTag: (tag) => set({ selectedTag: tag }),
 }));

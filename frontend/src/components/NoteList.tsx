@@ -1,10 +1,11 @@
 import { useRef } from 'react';
 import { Plus } from 'lucide-react';
-import { useNoteStore }        from '../store/noteStore';
+import { useNoteStore }           from '../store/noteStore';
 import { useNotes, useCreateNote } from '../hooks/useNotes';
-import { useDebounce }         from '../hooks/useDebounce';
+import { useDebounce }            from '../hooks/useDebounce';
 import NoteCard     from './NoteCard';
 import SearchBar    from './SearchBar';
+import TagFilter    from './TagFilter';
 import LoadingState from './LoadingState';
 import EmptyState   from './EmptyState';
 
@@ -16,13 +17,14 @@ export default function NoteList() {
   const {
     selectedNoteId, setSelectedNote,
     searchQuery,    setSearchQuery,
+    selectedTag,    setSelectedTag,
   } = useNoteStore();
 
-  // Debounce the search query so we don't fire a request on every keystroke
   const debouncedSearch = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
 
   const { data, isLoading, isError } = useNotes({
     search: debouncedSearch || undefined,
+    tag:    selectedTag    || undefined,
   });
   const createNote = useCreateNote();
 
@@ -36,6 +38,8 @@ export default function NoteList() {
   }
 
   const notes = data?.data ?? [];
+  // Active filter = search or tag is set
+  const isFiltered = !!debouncedSearch || !!selectedTag;
 
   return (
     <div className="flex flex-col h-full">
@@ -45,7 +49,10 @@ export default function NoteList() {
         <div className="flex items-center gap-2">
           <h1 className="font-serif text-lg text-text-pri">Notes</h1>
           {data && (
-            <span className="text-xs text-text-faint tabular-nums" aria-label={`${data.total} notes`}>
+            <span
+              className="text-xs text-text-faint tabular-nums"
+              aria-label={`${data.total} notes`}
+            >
               {data.total}
             </span>
           )}
@@ -63,14 +70,13 @@ export default function NoteList() {
         </button>
       </div>
 
-      {/* ── Search bar ────────────────────────────────────────────────────── */}
+      {/* ── Search ────────────────────────────────────────────────────────── */}
       <div className="px-3 py-2 border-b border-border-col shrink-0">
-        <SearchBar
-          ref={searchRef}
-          value={searchQuery}
-          onChange={setSearchQuery}
-        />
+        <SearchBar ref={searchRef} value={searchQuery} onChange={setSearchQuery} />
       </div>
+
+      {/* ── Tag filter — hidden when no tags exist ─────────────────────────── */}
+      <TagFilter selected={selectedTag} onSelect={setSelectedTag} />
 
       {/* ── Note list ─────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
@@ -84,10 +90,8 @@ export default function NoteList() {
 
         {!isLoading && !isError && notes.length === 0 && (
           <EmptyState
-            // When searching with no results show "No notes match X";
-            // otherwise show the first-run "Create your first note" state.
-            query={debouncedSearch || undefined}
-            onNew={debouncedSearch ? undefined : handleNew}
+            query={isFiltered ? (debouncedSearch || `#${selectedTag}`) : undefined}
+            onNew={isFiltered ? undefined : handleNew}
           />
         )}
 

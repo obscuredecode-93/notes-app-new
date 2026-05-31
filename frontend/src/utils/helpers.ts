@@ -18,6 +18,22 @@ export function truncate(str: string, maxLen: number): string {
   return str.slice(0, maxLen).trimEnd() + '…';
 }
 
+// ── Tag helpers ───────────────────────────────────────────────────────────────
+
+// Parse a raw user-typed string into clean, deduplicated tag tokens.
+// Splits on commas, trims whitespace, removes empty entries and duplicates.
+// Used by the tag input in NoteEditor.
+export function parseTagInput(raw: string): string[] {
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean)
+    ),
+  ];
+}
+
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
 // Return a human-readable relative time string (e.g. "3m ago", "2d ago").

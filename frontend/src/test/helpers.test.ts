@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { stripHtml, truncate, relativeTime } from '../utils/helpers';
+import { stripHtml, truncate, relativeTime, parseTagInput } from '../utils/helpers';
 
 // ── stripHtml ─────────────────────────────────────────────────────────────────
 
@@ -102,5 +102,41 @@ describe('relativeTime', () => {
     // a malformed timestamp
     expect(relativeTime('not-a-date')).toBe('');
     expect(relativeTime('')).toBe('');
+  });
+});
+
+// ── parseTagInput ─────────────────────────────────────────────────────────────
+
+describe('parseTagInput', () => {
+  it('parses a single tag', () => {
+    expect(parseTagInput('work')).toEqual(['work']);
+  });
+
+  it('parses comma-separated tags', () => {
+    expect(parseTagInput('work,personal,ideas')).toEqual(['work', 'personal', 'ideas']);
+  });
+
+  it('trims whitespace from each tag', () => {
+    expect(parseTagInput('  work  ,  personal  ')).toEqual(['work', 'personal']);
+  });
+
+  it('removes empty tags from splits', () => {
+    expect(parseTagInput('work,,personal,')).toEqual(['work', 'personal']);
+  });
+
+  it('removes duplicate tags (case-insensitive)', () => {
+    expect(parseTagInput('work,Work,WORK')).toEqual(['work']);
+  });
+
+  it('lowercases all tags', () => {
+    expect(parseTagInput('Work,PERSONAL')).toEqual(['work', 'personal']);
+  });
+
+  it('returns empty array for an empty string', () => {
+    expect(parseTagInput('')).toEqual([]);
+  });
+
+  it('returns empty array for whitespace-only input', () => {
+    expect(parseTagInput('   ')).toEqual([]);
   });
 });
