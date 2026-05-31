@@ -111,32 +111,6 @@ export default function NoteEditor({ note }: Props) {
 
   // ── Save helper ─────────────────────────────────────────────────────────────
 
-  // TipTap v3 requires useEditorState for reactive toolbar state.
-  // Calling editor.isActive() directly in render does NOT subscribe to changes —
-  // useEditorState re-runs the selector on every transaction/selection update.
-  const toolbar = useEditorState({
-    editor,
-    selector: (ctx) => {
-      const e = ctx.editor;
-      if (!e) return {
-        isBold: false, isItalic: false, isCode: false,
-        isH1: false, isH2: false,
-        isBulletList: false, isOrderedList: false,
-        isBlockquote: false,
-      };
-      return {
-        isBold:        e.isActive('bold'),
-        isItalic:      e.isActive('italic'),
-        isCode:        e.isActive('code'),
-        isH1:          e.isActive('heading', { level: 1 }),
-        isH2:          e.isActive('heading', { level: 2 }),
-        isBulletList:  e.isActive('bulletList'),
-        isOrderedList: e.isActive('orderedList'),
-        isBlockquote:  e.isActive('blockquote'),
-      };
-    },
-  });
-
   // Use a ref so the save function is always current inside callbacks/effects
   // without needing to be listed as a dependency
   const saveRef = useRef(
@@ -193,6 +167,32 @@ export default function NoteEditor({ note }: Props) {
       contentTimerRef.current = setTimeout(() => {
         saveRef.current({ content: latestContentRef.current });
       }, AUTOSAVE_DELAY_MS);
+    },
+  });
+
+  // TipTap v3: useEditorState must come AFTER useEditor (editor is now defined).
+  // Calling editor.isActive() directly in render gives stale values in v3 —
+  // useEditorState subscribes to every transaction/selection update.
+  const toolbar = useEditorState({
+    editor,
+    selector: (ctx) => {
+      const e = ctx.editor;
+      if (!e) return {
+        isBold: false, isItalic: false, isCode: false,
+        isH1: false, isH2: false,
+        isBulletList: false, isOrderedList: false,
+        isBlockquote: false,
+      };
+      return {
+        isBold:        e.isActive('bold'),
+        isItalic:      e.isActive('italic'),
+        isCode:        e.isActive('code'),
+        isH1:          e.isActive('heading', { level: 1 }),
+        isH2:          e.isActive('heading', { level: 2 }),
+        isBulletList:  e.isActive('bulletList'),
+        isOrderedList: e.isActive('orderedList'),
+        isBlockquote:  e.isActive('blockquote'),
+      };
     },
   });
 
