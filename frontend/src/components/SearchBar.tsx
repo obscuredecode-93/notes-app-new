@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import { Search, X } from 'lucide-react';
 
 interface Props {
-  value:    string;
+  value: string;
   onChange: (value: string) => void;
 }
 
@@ -20,7 +20,7 @@ const SearchBar = forwardRef<HTMLInputElement, Props>(({ value, onChange }, ref)
       type="text"
       role="searchbox"
       aria-label="Search notes"
-      placeholder="Search… (⌘K)"
+      placeholder="Search…"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="w-full bg-bg-hover border border-border-col rounded-lg pl-8 pr-7 py-1.5 text-sm text-text-pri placeholder:text-text-faint focus:outline-none focus:border-accent/50 transition-colors"
