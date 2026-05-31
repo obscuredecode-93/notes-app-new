@@ -142,7 +142,21 @@ export default function NoteEditor({ note }: Props) {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      // Explicitly configure each node so nothing is accidentally disabled.
+      // All options below are the defaults — listing them makes intent clear
+      // and protects against future StarterKit version changes.
+      StarterKit.configure({
+        heading:       { levels: [1, 2, 3] },
+        bulletList:    {},
+        orderedList:   {},
+        blockquote:    {},
+        bold:          {},
+        italic:        {},
+        strike:        {},
+        code:          {},
+        codeBlock:     {},
+        horizontalRule:{},
+      }),
       Placeholder.configure({ placeholder: 'Start writing…' }),
     ],
     content: note.content,
