@@ -1,8 +1,9 @@
 import { useRef } from 'react';
 import { Plus } from 'lucide-react';
-import { useNoteStore }           from '../store/noteStore';
-import { useNotes, useCreateNote } from '../hooks/useNotes';
-import { useDebounce }            from '../hooks/useDebounce';
+import { useNoteStore }                        from '../store/noteStore';
+import { useNotes, useCreateNote, useDeleteNote } from '../hooks/useNotes';
+import { useDebounce }                         from '../hooks/useDebounce';
+import { useKeyboardShortcuts }                from '../hooks/useKeyboardShortcuts';
 import NoteCard     from './NoteCard';
 import SearchBar    from './SearchBar';
 import SortControls from './SortControls';
@@ -32,6 +33,7 @@ export default function NoteList() {
     order:  sortOrder,
   });
   const createNote = useCreateNote();
+  const deleteNote = useDeleteNote();
 
   async function handleNew() {
     try {
@@ -42,8 +44,34 @@ export default function NoteList() {
     }
   }
 
-  const notes     = data?.data ?? [];
+  const notes      = data?.data ?? [];
   const isFiltered = !!debouncedSearch || !!selectedTag;
+
+  // ── Keyboard shortcuts ─────────────────────────────────────────────────────
+  useKeyboardShortcuts({
+    onNew: handleNew,
+
+    // ⌘K — focus the search bar so the user can start typing immediately
+    onSearch: () => searchRef.current?.focus(),
+
+    // ⌘Delete — delete the currently selected note (if any)
+    onDelete: selectedNoteId
+      ? async () => {
+          try {
+            await deleteNote.mutateAsync(selectedNoteId);
+            setSelectedNote(null);
+          } catch {
+            // Error handled by useDeleteNote's onError (cache rollback)
+          }
+        }
+      : undefined,
+
+    // Escape — step-down dismiss: clear search first, then tag filter
+    onEscape: () => {
+      if (searchQuery)  { setSearchQuery(''); return; }
+      if (selectedTag)  { setSelectedTag(null); }
+    },
+  });
 
   return (
     <div className="flex flex-col h-full">
