@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { stripHtml, truncate, relativeTime, parseTagInput } from '../utils/helpers';
+import { stripHtml, truncate, relativeTime, parseTagInput, htmlToMarkdown } from '../utils/helpers';
 
 // ── stripHtml ─────────────────────────────────────────────────────────────────
 
@@ -138,5 +138,70 @@ describe('parseTagInput', () => {
 
   it('returns empty array for whitespace-only input', () => {
     expect(parseTagInput('   ')).toEqual([]);
+  });
+});
+
+// ── htmlToMarkdown ────────────────────────────────────────────────────────────
+
+describe('htmlToMarkdown', () => {
+  it('converts headings', () => {
+    expect(htmlToMarkdown('<h1>Title</h1>')).toBe('# Title');
+    expect(htmlToMarkdown('<h2>Sub</h2>')).toBe('## Sub');
+    expect(htmlToMarkdown('<h3>Sub sub</h3>')).toBe('### Sub sub');
+  });
+
+  it('converts bold and italic', () => {
+    expect(htmlToMarkdown('<strong>bold</strong>')).toBe('**bold**');
+    expect(htmlToMarkdown('<b>also bold</b>')).toBe('**also bold**');
+    expect(htmlToMarkdown('<em>italic</em>')).toBe('_italic_');
+    expect(htmlToMarkdown('<i>also italic</i>')).toBe('_also italic_');
+  });
+
+  it('converts inline code', () => {
+    expect(htmlToMarkdown('<code>const x = 1</code>')).toBe('`const x = 1`');
+  });
+
+  it('converts fenced code blocks', () => {
+    const result = htmlToMarkdown('<pre><code>hello\nworld</code></pre>');
+    expect(result).toContain('```');
+    expect(result).toContain('hello');
+  });
+
+  it('converts paragraphs to plain text', () => {
+    expect(htmlToMarkdown('<p>Hello world</p>')).toBe('Hello world');
+  });
+
+  it('converts bullet lists', () => {
+    const result = htmlToMarkdown('<ul><li>item one</li><li>item two</li></ul>');
+    expect(result).toContain('- item one');
+    expect(result).toContain('- item two');
+  });
+
+  it('converts horizontal rule', () => {
+    expect(htmlToMarkdown('<hr />')).toBe('---');
+  });
+
+  it('decodes HTML entities', () => {
+    expect(htmlToMarkdown('&amp; &lt; &gt; &quot;')).toBe('& < > "');
+  });
+
+  it('returns empty string for empty input', () => {
+    expect(htmlToMarkdown('')).toBe('');
+  });
+
+  it('strips unknown tags', () => {
+    expect(htmlToMarkdown('<span class="foo">text</span>')).toBe('text');
+  });
+
+  it('separates multiple block elements with blank lines', () => {
+    // Regression: without trailing \n\n on each block, heading and paragraph ran together
+    const result = htmlToMarkdown('<h1>Title</h1><p>First paragraph</p><p>Second paragraph</p>');
+    expect(result).toMatch(/# Title\n\nFirst paragraph/);
+    expect(result).toMatch(/First paragraph\n\nSecond paragraph/);
+  });
+
+  it('converts blockquote', () => {
+    const result = htmlToMarkdown('<blockquote><p>A quote</p></blockquote>');
+    expect(result).toContain('> A quote');
   });
 });

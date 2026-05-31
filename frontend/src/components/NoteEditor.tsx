@@ -5,12 +5,12 @@ import Placeholder from '@tiptap/extension-placeholder';
 import {
   Bold, Italic, Code, Heading1, Heading2,
   List, ListOrdered, Quote, Minus,
-  Loader2, Check, AlertCircle, Tag, X, Trash2,
+  Loader2, Check, AlertCircle, Tag, X, Trash2, Download,
 } from 'lucide-react';
 import type { Note } from '../types';
 import { useDebounce }               from '../hooks/useDebounce';
 import { useUpdateNote, useDeleteNote } from '../hooks/useNotes';
-import { parseTagInput }              from '../utils/helpers';
+import { parseTagInput, htmlToMarkdown } from '../utils/helpers';
 import { useNoteStore }               from '../store/noteStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -174,6 +174,23 @@ export default function NoteEditor({ note }: Props) {
     saveRef.current({ title: debouncedTitle });
   }, [debouncedTitle, note.title]);
 
+  // ── Markdown export ───────────────────────────────────────────────────────
+
+  function handleExportMarkdown() {
+    // Prefix with the note title as an H1 so the file is self-contained
+    const content  = `# ${title || 'Untitled'}\n\n${htmlToMarkdown(latestContentRef.current)}`;
+    const blob     = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url      = URL.createObjectURL(blob);
+    const a        = document.createElement('a');
+    a.href         = url;
+    // Sanitise the title for use as a filename
+    a.download     = `${(title || 'untitled').replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, '-').toLowerCase() || 'note'}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   // ── Delete ────────────────────────────────────────────────────────────────
 
   async function handleDelete() {
@@ -311,6 +328,17 @@ export default function NoteEditor({ note }: Props) {
 
         {/* Save state indicator — pushed to the right */}
         <SaveIndicator state={saveState} />
+
+        {/* Export as Markdown */}
+        <button
+          type="button"
+          onClick={handleExportMarkdown}
+          aria-label="Export note as Markdown"
+          title="Export as Markdown (.md)"
+          className="ml-1 p-1.5 rounded text-text-faint hover:text-text-sec hover:bg-bg-hover transition-colors focus:outline-none focus:ring-1 focus:ring-accent"
+        >
+          <Download className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
 
         {/* Delete button — confirmation dialog added in commit 21 (trash) */}
         <button

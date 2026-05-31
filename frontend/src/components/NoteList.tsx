@@ -43,7 +43,7 @@ export default function NoteList() {
       const note = await createNote.mutateAsync({ title: '', content: '', tags: [] });
       setSelectedNote(note.id);
     } catch {
-      // Error stored in createNote.error — full error UI in commit 17
+      // Error handled by createNote.error; ErrorState shown via isError in NoteList
     }
   }
 

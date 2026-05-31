@@ -6,8 +6,8 @@ interface Props {
   onChange: (value: string) => void;
 }
 
-// forwardRef so the parent (NoteList) can focus the input programmatically,
-// e.g. when the ⌘K keyboard shortcut is pressed (commit 16).
+// forwardRef so the parent (NoteList) can focus the input programmatically
+// via the ⌘K keyboard shortcut wired in useKeyboardShortcuts.
 const SearchBar = forwardRef<HTMLInputElement, Props>(({ value, onChange }, ref) => (
   <div className="relative">
     <Search
