@@ -2,6 +2,9 @@
 
 A production-quality notes application with a rich-text editor, real-time auto-save, tag filtering, full-text search, and dark/light theming.
 
+**Live demo:** https://notes-app-new-neon.vercel.app  
+**API:** https://notes-app-new-3vf6.onrender.com/health
+
 ---
 
 ## Setup & Run
