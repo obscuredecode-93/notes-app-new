@@ -113,7 +113,7 @@ Trashed notes stay indefinitely. A production system would schedule cleanup afte
 
 ## Testing Approach
 
-**Backend — 40 integration tests (`node:test` + supertest)**
+**Backend — 43 integration tests (`node:test` + supertest)**
 
 Integration tests over unit tests because the meaningful behaviour lives at the HTTP boundary: does the right SQL run, does validation reject bad input, are HTTP status codes correct? Mocking the database would test the wrong thing — historical bugs live in the query layer, not the handler layer.
 
@@ -124,9 +124,90 @@ Each describe block runs `beforeEach(() => db.exec('DELETE FROM notes'))` so tes
 Pure utility functions (`helpers.ts`) and custom hooks (`useDebounce`) are unit-tested — well-defined contracts, fast, no mocking needed. Components are not unit-tested: mocking TipTap + React Query + Zustand in jsdom costs more than it's worth. Component behaviour is covered by the integration tests and manual golden-path testing.
 
 ```bash
-cd backend  && npm test          # 40 integration tests
+cd backend  && npm test          # 43 integration tests
 cd frontend && npx vitest run    # 44 unit tests
 ```
+
+---
+
+## Development Process
+
+### Scaffolding & Build Approach
+
+This application was scaffolded and built incrementally using Claude Code as an AI-assisted development tool.
+
+The process was deliberately structured to mirror professional engineering practices:
+
+**Feature-by-feature commits:**
+Rather than generating the entire codebase in one pass, the app was built one feature at a time with a meaningful commit after each — backend schema, CRUD endpoints, validation, frontend components, editor integration, optimistic UI, keyboard shortcuts, offline detection, and the trash/restore feature.
+
+This approach ensured:
+- Each commit represents a working, testable slice
+- The git history tells the story of how the app was built
+- Regressions could be traced to a specific change
+- Code was reviewed in manageable chunks, not all at once
+
+**Prompts used during development:**
+
+The following prompts were used to scaffold and build the application. Each was carefully reviewed before being applied to the codebase:
+
+1. **Scaffold prompt** — full project structure, tech stack decisions, data models, API contract, UI design direction, commit strategy, deployment plan
+2. **Review agent prompt** — acted as a senior code reviewer checking for bugs, TypeScript safety, backend best practices, frontend best practices, accessibility, and generating missing unit tests. Run after each feature was built.
+3. **Bug fix prompts** — targeted fixes for specific issues discovered during testing (documented below)
+
+---
+
+### AI-Assisted Senior Code Review
+
+After each feature was built, a structured review prompt was used to simulate a senior engineer code review pass.
+
+The review agent checked for:
+
+**Bugs & correctness:** logic errors, unhandled edge cases, missing await, unhandled promise rejections, null/undefined access without guards, SQL injection risks, memory leaks (event listeners, timers not cleaned up).
+
+**TypeScript safety:** unsafe `any` usage, missing return types, unsafe type assertions, Zod/TypeScript schema consistency.
+
+**Backend practices:** correct HTTP status codes, consistent error response shape, input validation before database, parameterised SQL queries, async errors forwarded to error middleware.
+
+**Frontend practices:** rules of hooks compliance, missing `useEffect` dependency arrays, infinite re-render risks, API error handling and user feedback, optimistic update rollback correctness, debounce cleanup on unmount.
+
+**Code quality:** duplicated logic, magic numbers/strings, dead code and unused imports, function single responsibility.
+
+Issues found and resolved during review:
+- Auto-save debounce timer was not being cleared on component unmount
+- Trash routes were registered after the `/:id` wildcard, causing 404s (`/trash` was matched as an id)
+- React Query trash cache was not being fully invalidated after restore mutations — required `removeQueries` not just `invalidateQueries`
+- Keyboard shortcuts used Mac-only `⌘` symbol in UI labels without OS detection
+- Tailwind Preflight was resetting `ul/ol { list-style: none; padding: 0 }`, suppressing bullet and numbered list rendering in the editor
+
+---
+
+### Post-Build Manual Review
+
+Before every commit, each feature was manually reviewed:
+
+1. **Read every file** — understood every architectural decision, not just whether it ran
+2. **Traced the data flow** — followed each feature from UI interaction → state update → API call → DB query → response → UI update
+3. **Checked error paths** — not just the happy path: what happens when the API fails, when offline, when input is invalid
+4. **Verified against the assignment brief** — checked each requirement was met, not just assumed
+5. **Confirmed feature accuracy** by asking: does this behave exactly as the requirement describes, are there edge cases the spec implies but doesn't state, would a non-technical user understand this behaviour?
+
+---
+
+### Regression Testing
+
+After deployment to Vercel + Render, a full regression pass was run against the live app covering core CRUD, auto-save, search and filter, sort, editor formatting (H1/H2, lists, blockquote, bold/italic), trash (move → restore → re-trash sequence, permanent delete), states (loading, empty, offline banner, failed save, auto-retry), and keyboard shortcuts on Mac and Windows.
+
+**Bugs found and fixed during regression:**
+
+| Bug | Fix |
+|---|---|
+| Trash not updating after restore → re-trash sequence | Used `removeQueries` instead of `invalidateQueries` after restore mutations |
+| Keyboard shortcut labels Mac-only (`⌘`) | Added OS detection utility using `navigator.platform`; Windows shows `Ctrl+` |
+| Bullet/numbered lists not rendering | Tailwind Preflight reset overriding ProseMirror list styles — moved CSS outside `@layer` |
+| H1/H2 applying to all text | Content was in a single block due to soft line breaks (`Shift+Enter`); documented expected behaviour |
+| Failed to save not shown when offline | `fetch` TypeError was being swallowed — added explicit catch with `navigator.onLine` check and pending-patch retry on reconnect |
+| TipTap toolbar active state not updating | TipTap v3 requires `useEditorState` hook; `editor.isActive()` in render does not subscribe to state changes |
 
 ---
 
@@ -143,10 +224,13 @@ cd frontend && npx vitest run    # 44 unit tests
 - **Authentication** — JWT-based, per-user note isolation
 - **Collaborative editing** — WebSocket broadcasting, CRDTs for conflict resolution
 - **Note version history** — store content diffs, point-in-time restore
-- **E2E tests** — Playwright covering the full create → edit → save → search → delete golden path
+- **E2E tests with Playwright** — covering full regression path: create → edit → save → search → delete → trash → restore
 - **Offline-first** — IndexedDB write queue, sync-on-reconnect, conflict detection
 - **Better Markdown export** — `turndown` library; handle bold/italic inside lists
 - **Postgres for production** — swap SQLite for horizontal scalability
+- **Loading indicators** on note creation and search results
+- **Sort preference persistence** to localStorage
+- **Blockquote inside lists** — requires a ProseMirror schema extension
 
 ---
 
@@ -159,3 +243,5 @@ cd frontend && npx vitest run    # 44 unit tests
 | Render free tier: DB resets on redeploy | Ephemeral filesystem | Add a Render Disk, or use a hosted DB |
 | No authentication | Out of scope per brief | Add Lucia or better-auth |
 | Markdown export is regex-based | Full DOM parser was out of scope | Use `turndown` in production |
+| Blockquote not supported inside lists | ProseMirror node type conflict | Use blockquote outside list context |
+| H1/H2 inside lists converts list item to heading | Headings and lists are mutually exclusive block types in ProseMirror | Exit list first, then apply heading |
