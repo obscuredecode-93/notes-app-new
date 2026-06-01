@@ -6,11 +6,16 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  // Always log the full error server-side for debugging
   console.error(err);
+
+  // Never expose stack traces or internal details to clients in production.
+  // In development the message is surfaced to speed up debugging.
+  const isProd = process.env.NODE_ENV === 'production';
   res.status(500).json({
     error: {
       code:    'INTERNAL_ERROR',
-      message: 'An unexpected error occurred',
+      message: isProd ? 'An unexpected error occurred' : String(err),
       details: {},
     },
   });
